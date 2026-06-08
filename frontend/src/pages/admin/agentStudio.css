@@ -19,7 +19,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 14px;
-  padding: 2px 0 4px;
+  padding: 2px 0 8px;
 }
 
 .agent-studio-page .page-header h1 {
@@ -28,15 +28,15 @@
 }
 
 .agent-studio-page .page-header p {
-  max-width: 680px;
+  max-width: 760px;
   color: var(--studio-muted);
 }
 
 .agent-studio-page .agent-builder-workspace {
   display: grid;
-  grid-template-columns: minmax(250px, 292px) minmax(0, 1fr);
-  gap: 12px;
-  min-height: min(780px, calc(100vh - 150px));
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-height: min(760px, calc(100vh - 118px));
   min-width: 0;
 }
 
@@ -52,267 +52,52 @@
 
 .agent-studio-page .blueprint-rail {
   display: grid;
-  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(320px, 1fr) auto;
   gap: 10px;
-  padding: 12px;
-  overflow: hidden;
+  align-items: center;
+  padding: 10px 12px;
+  overflow: visible;
   color: var(--studio-ink);
-  background: #f8f8f4;
+  background: #ffffff;
   border-color: var(--studio-line);
 }
 
 .agent-studio-page .rail-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: start;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--studio-soft-line);
-}
-
-.agent-studio-page .rail-header h2 {
-  color: var(--studio-ink);
-  font-size: 16px;
-  line-height: 1.2;
-}
-
-.agent-studio-page .rail-header p {
-  display: none;
-  margin: 4px 0 0;
-  color: var(--studio-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.agent-studio-page .blueprint-rail-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+  grid-template-columns: auto minmax(260px, 420px);
+  gap: 8px;
+  align-items: center;
   min-width: 0;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid var(--studio-soft-line);
-  border-radius: 4px;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
-.agent-studio-page .blueprint-rail-summary div {
-  display: grid;
-  gap: 2px;
+.agent-studio-page .rail-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.agent-studio-page .rail-actions .ant-btn {
   min-width: 0;
-  padding: 8px 7px;
-  border-right: 1px solid var(--studio-soft-line);
 }
 
-.agent-studio-page .blueprint-rail-summary div:last-child {
-  border-right: 0;
-}
-
-.agent-studio-page .blueprint-rail-summary span,
-.agent-studio-page .blueprint-rail-summary strong,
-.agent-studio-page .blueprint-filter-context span,
-.agent-studio-page .blueprint-filter-context strong {
+.agent-studio-page .rail-header span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.agent-studio-page .blueprint-rail-summary span,
-.agent-studio-page .blueprint-filter-context span {
-  color: var(--studio-muted);
+.agent-studio-page .rail-header span {
+  color: var(--studio-green);
   font-size: 11px;
   font-weight: 850;
 }
 
-.agent-studio-page .blueprint-rail-summary strong,
-.agent-studio-page .blueprint-filter-context strong {
-  color: var(--studio-ink);
-  font-size: 15px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.agent-studio-page .blueprint-search {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 10px;
-  color: var(--studio-muted);
-  background: #ffffff;
-  border: 1px solid var(--studio-soft-line);
-  border-radius: 4px;
-}
-
-.agent-studio-page .blueprint-search input {
-  min-width: 0;
-  color: var(--studio-ink);
-  background: transparent;
-  border: 0;
-  outline: 0;
-  font: inherit;
-}
-
-.agent-studio-page .blueprint-status-filter {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
-  min-width: 0;
-}
-
-.agent-studio-page .blueprint-status-filter button {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  min-height: 40px;
-  padding: 6px;
-  color: var(--studio-muted);
-  background: #ffffff;
-  border: 1px solid var(--studio-soft-line);
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.agent-studio-page .blueprint-status-filter button.active {
-  color: #153c35;
-  background: #edf8f4;
-  border-color: #bddbd2;
-}
-
-.agent-studio-page .blueprint-filter-context {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  min-height: 26px;
-  padding: 0 2px 2px;
-}
-
-.agent-studio-page .blueprint-status-filter span,
-.agent-studio-page .blueprint-status-filter strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-studio-page .blueprint-status-filter span {
-  font-size: 11px;
-  font-weight: 820;
-}
-
-.agent-studio-page .blueprint-status-filter strong {
-  color: var(--studio-ink);
-  font-size: 14px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.agent-studio-page .blueprint-list {
-  display: grid;
-  gap: 7px;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.agent-studio-page .blueprint-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px 8px;
-  padding: 9px 10px;
-  color: var(--studio-ink);
-  background: #ffffff;
-  border-color: var(--studio-soft-line);
-  border-left: 3px solid transparent;
-  border-radius: 4px;
-}
-
-.agent-studio-page .blueprint-item:hover {
-  background: #f4faf7;
-  border-color: #b8d9cf;
-  border-left-color: var(--studio-green);
-}
-
-.agent-studio-page .blueprint-item.active {
-  background: #eef8f4;
-  border-color: #a8dfd0;
-  border-left-color: var(--studio-green);
-}
-
-.agent-studio-page .blueprint-item-main {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.agent-studio-page .blueprint-status-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px;
-  min-width: 0;
-  max-width: 96px;
-}
-
-.agent-studio-page .blueprint-status-tags .ant-tag {
-  margin-inline-end: 0;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agent-studio-page .blueprint-item-main strong,
-.agent-studio-page .blueprint-item-main span {
-  display: block;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.agent-studio-page .blueprint-item-main strong {
-  overflow: hidden;
-  color: inherit;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-studio-page .blueprint-item-main span {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--studio-muted);
-  font-size: 12px;
-  line-height: 1.35;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.agent-studio-page .blueprint-item.active .blueprint-item-main span {
-  color: #31524a;
-}
-
-.agent-studio-page .blueprint-meta {
-  grid-column: 1 / -1;
-  gap: 5px;
-  margin-top: 2px;
-}
-
-.agent-studio-page .blueprint-meta em {
-  padding: 3px 6px;
-  color: #51615d;
-  background: #f7f7f4;
-  border-color: #e1dfd7;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.agent-studio-page .blueprint-item.active .blueprint-meta em {
-  color: #285149;
-  background: #ffffff;
-  border-color: #c9ded7;
+.agent-studio-page .blueprint-service-select {
+  width: 100%;
 }
 
 .agent-studio-page .inline-builder-surface {
@@ -333,7 +118,7 @@
   justify-content: space-between;
   gap: 14px;
   margin: 0;
-  padding: 15px 16px;
+  padding: 14px 16px;
   background: #ffffff;
   border-bottom: 1px solid var(--studio-line);
 }
@@ -348,7 +133,7 @@
   overflow: hidden;
   max-width: 560px;
   color: var(--studio-ink);
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -401,113 +186,22 @@
   min-width: 76px;
 }
 
-.agent-studio-page .studio-production-brief {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  min-width: 0;
-  overflow: hidden;
-  background: var(--studio-soft-line);
-  border-bottom: 1px solid var(--studio-line);
-}
-
-.agent-studio-page .studio-production-brief div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  min-height: 68px;
-  padding: 10px 14px;
-  background: #ffffff;
-}
-
-.agent-studio-page .studio-production-brief span,
-.agent-studio-page .studio-production-brief strong,
-.agent-studio-page .studio-production-brief em {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.agent-studio-page .studio-production-brief span {
-  color: var(--studio-muted);
-  font-size: 11px;
-  font-weight: 850;
-}
-
-.agent-studio-page .studio-production-brief strong {
-  color: var(--studio-ink);
-  font-size: 14px;
-  line-height: 1.2;
-  white-space: normal;
-}
-
-.agent-studio-page .studio-production-brief em {
-  color: var(--studio-muted);
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 720;
-  line-height: 1.35;
-}
-
-.agent-studio-page .studio-production-brief .ready {
-  background: #f4fbf7;
-}
-
-.agent-studio-page .studio-production-brief .warning {
-  background: #fff9ee;
-}
-
-.agent-studio-page .studio-production-brief .blocked {
-  background: #fff6f4;
-}
-
-.agent-studio-page .studio-production-path {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-  background: #ffffff;
-  border-bottom: 1px solid var(--studio-line);
-}
-
-.agent-studio-page .studio-production-path-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-  padding: 9px 14px;
-  background: #fbfbf8;
-  border-bottom: 1px solid #e1e6e1;
-}
-
-.agent-studio-page .studio-production-path-head span {
-  color: #173b33;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.agent-studio-page .studio-production-path-head strong {
-  min-width: 0;
-  color: var(--studio-muted);
-  font-size: 12px;
-  font-weight: 760;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
 .agent-studio-page .studio-process-bar {
-  position: sticky;
-  top: 0;
+  grid-column: 1 / -1;
+  position: static;
   z-index: 2;
   display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   align-content: start;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   height: fit-content;
-  max-height: calc(100vh - 170px);
-  padding: 14px 10px;
-  overflow: auto;
-  background: #f8f8f3;
-  border-right: 1px solid var(--studio-line);
+  max-height: none;
+  padding: 10px 12px;
+  overflow: hidden;
+  background: #fbfcfb;
+  border-right: 0;
+  border-bottom: 1px solid var(--studio-line);
   scrollbar-width: none;
 }
 
@@ -517,12 +211,12 @@
 
 .studio-step-pill {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  min-height: 44px;
-  padding: 8px 9px;
+  min-height: 38px;
+  padding: 7px 8px;
   color: #50605a;
   background: transparent;
   border: 1px solid transparent;
@@ -541,7 +235,7 @@
   color: #10231f;
   background: #fff;
   border-color: var(--studio-line);
-  box-shadow: inset 3px 0 0 var(--studio-runtime);
+  box-shadow: inset 0 -2px 0 var(--studio-runtime);
 }
 
 .studio-step-pill.has-blocker {
@@ -571,13 +265,13 @@
 }
 
 .studio-step-pill span {
+  display: none;
   color: #68736e;
   font-size: 11px;
   font-weight: 800;
 }
 
 .studio-step-pill strong {
-  grid-column: 2 / 3;
   color: inherit;
   font-size: 12px;
   font-weight: 850;
@@ -597,10 +291,11 @@
 
 .agent-studio-page .studio-authoring-grid {
   display: grid;
-  grid-template-columns: minmax(132px, 164px) minmax(0, 1fr) minmax(276px, 306px);
+  grid-template-columns: minmax(0, 1fr) minmax(264px, 300px);
   gap: 0;
   min-height: 0;
   overflow: visible;
+  background: #ffffff;
 }
 
 .agent-studio-page .studio-inline-inspector {
@@ -624,9 +319,61 @@
 
 .agent-studio-page .builder-layout.inline {
   min-height: 0;
-  padding: 18px 20px;
+  padding: 18px 22px 22px;
   overflow: visible;
-  background: #f5f6f4;
+  background: #ffffff;
+  border-right: 1px solid var(--studio-line);
+}
+
+.agent-studio-page .studio-current-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--studio-soft-line);
+}
+
+.agent-studio-page .studio-current-task > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-studio-page .studio-current-task span,
+.agent-studio-page .studio-current-task h3,
+.agent-studio-page .studio-current-task p,
+.agent-studio-page .studio-current-task strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-studio-page .studio-current-task span {
+  color: var(--studio-green);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.agent-studio-page .studio-current-task h3 {
+  margin: 0;
+  color: var(--studio-ink);
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.agent-studio-page .studio-current-task p {
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-studio-page .studio-current-task strong {
+  color: var(--studio-ink);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .agent-studio-page .builder-section {
@@ -1117,16 +864,16 @@
   max-height: none;
   padding: 0;
   overflow: visible;
-  background: #fbfcf8;
+  background: #fbfcfb;
   border-left: 1px solid #cfd8d1;
-  position: static;
-  top: auto;
+  position: sticky;
+  top: 12px;
 }
 
 .agent-studio-page .studio-inspector-panel section {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   background: transparent;
   border: 0;
   border-bottom: 1px solid #d5ded8;
@@ -1137,7 +884,7 @@
   color: var(--studio-ink);
   background: #ffffff;
   border-top: 0;
-  border-left: 3px solid #9a8b5c;
+  border-left: 0;
 }
 
 .agent-studio-page .studio-review-console.ready {
@@ -1208,6 +955,61 @@
   gap: 12px;
   align-items: center;
   min-width: 0;
+}
+
+.agent-studio-page .studio-next-hero {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px;
+  background: #fff9ee;
+  border: 1px solid #ead6b8;
+  border-radius: 5px;
+}
+
+.agent-studio-page .studio-next-hero.ready {
+  background: #f2fbf5;
+  border-color: #c9e6d6;
+}
+
+.agent-studio-page .studio-next-hero.blocked {
+  background: #fff4ef;
+  border-color: #efc5bd;
+}
+
+.agent-studio-page .studio-next-hero svg {
+  margin-top: 2px;
+  color: var(--studio-gold);
+}
+
+.agent-studio-page .studio-next-hero.ready svg {
+  color: var(--studio-green);
+}
+
+.agent-studio-page .studio-next-hero.blocked svg {
+  color: var(--studio-danger);
+}
+
+.agent-studio-page .studio-next-hero span,
+.agent-studio-page .studio-next-hero strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-studio-page .studio-next-hero span {
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.agent-studio-page .studio-next-hero strong {
+  margin: 2px 0 4px;
+  color: var(--studio-ink);
+  font-size: 16px;
+  line-height: 1.35;
 }
 
 .agent-studio-page .inspector-score strong,
@@ -1303,6 +1105,18 @@
 .inspector-blockers {
   display: grid;
   gap: 6px;
+}
+
+.studio-blocker-brief {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.studio-blocker-brief > span {
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .inspector-blockers button {
@@ -1542,101 +1356,30 @@
   min-width: 0;
 }
 
+.studio-inspector-technical {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--studio-soft-line);
+}
+
+.studio-inspector-technical summary {
+  color: var(--studio-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.studio-inspector-technical[open] summary {
+  margin-bottom: 10px;
+}
+
 .studio-primary-action .ant-btn {
   width: 100%;
   min-height: 34px;
   border-radius: 5px;
   font-weight: 850;
-}
-
-.studio-release-path {
-  display: grid;
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid #d9dfda;
-  border-radius: 4px;
-}
-
-.studio-release-path-main {
-  grid-template-columns: repeat(5, minmax(132px, 1fr));
-  border: 0;
-  border-radius: 0;
-}
-
-.studio-release-path div {
-  display: grid;
-  grid-template-columns: 24px minmax(68px, 0.42fr) minmax(0, 1fr);
-  gap: 7px;
-  align-items: center;
-  min-width: 0;
-  padding: 7px 8px;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e8e4;
-}
-
-.studio-release-path-main div {
-  grid-template-columns: 24px minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  gap: 3px 8px;
-  min-height: 58px;
-  padding: 9px 11px;
-  border-right: 1px solid #e4e8e4;
-  border-bottom: 0;
-}
-
-.studio-release-path div:last-child {
-  border-bottom: 0;
-}
-
-.studio-release-path-main div:last-child {
-  border-right: 0;
-}
-
-.studio-release-path div.passed {
-  background: #f0faf5;
-}
-
-.studio-release-path em {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  color: var(--studio-muted);
-  background: #f7f8f6;
-  border: 1px solid #d9dfda;
-  border-radius: 4px;
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 850;
-}
-
-.studio-release-path div.passed em {
-  color: #10231f;
-  background: #9ee7cd;
-  border-color: #9ee7cd;
-}
-
-.studio-release-path span,
-.studio-release-path strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  line-height: 1.35;
-}
-
-.studio-release-path span {
-  color: var(--studio-ink);
-  font-size: 12px;
-  font-weight: 820;
-}
-
-.studio-release-path strong {
-  color: var(--studio-muted);
-  font-size: 11px;
-  font-weight: 760;
-}
-
-.studio-release-path-main strong {
-  grid-column: 2;
 }
 
 .agent-studio-page .readiness-score,
@@ -1791,7 +1534,7 @@
   }
 
   .agent-studio-page .studio-authoring-grid {
-    grid-template-columns: minmax(128px, 150px) minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .agent-studio-page .studio-inspector-panel {
@@ -1803,58 +1546,23 @@
   }
 
   .agent-studio-page .studio-inline-inspector {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }
 
 @media (min-width: 961px) and (max-width: 1180px) {
   .agent-studio-page .agent-builder-workspace {
-    grid-template-columns: minmax(92px, 104px) minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .agent-studio-page .blueprint-rail {
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(260px, 1fr) minmax(200px, 0.8fr);
     max-height: none;
-    padding: 10px 8px;
+    padding: 10px;
   }
 
   .agent-studio-page .rail-header {
-    grid-template-columns: 1fr;
-  }
-
-  .agent-studio-page .rail-header h2,
-  .agent-studio-page .blueprint-rail-summary,
-  .agent-studio-page .blueprint-search,
-  .agent-studio-page .blueprint-status-filter,
-  .agent-studio-page .blueprint-filter-context,
-  .agent-studio-page .blueprint-item-main span,
-  .agent-studio-page .blueprint-status-tags,
-  .agent-studio-page .blueprint-meta {
-    display: none;
-  }
-
-  .agent-studio-page .rail-header .ant-btn {
-    width: 100%;
-    min-width: 0;
-    padding-inline: 0;
-  }
-
-  .agent-studio-page .rail-header .ant-btn span {
-    display: none;
-  }
-
-  .agent-studio-page .blueprint-item {
-    display: grid;
-    grid-template-columns: 1fr;
-    min-height: 66px;
-    padding: 9px 7px;
-    text-align: center;
-  }
-
-  .agent-studio-page .blueprint-item-main strong {
-    white-space: normal;
-    font-size: 12px;
-    line-height: 1.25;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 }
 
@@ -1864,7 +1572,8 @@
   }
 
   .agent-studio-page .blueprint-rail {
-    max-height: 300px;
+    grid-template-columns: 1fr;
+    max-height: none;
   }
 }
 
@@ -1927,6 +1636,10 @@
     padding: 14px 12px;
   }
 
+  .agent-studio-page .studio-current-task {
+    grid-template-columns: 1fr;
+  }
+
   .studio-object-title h2 {
     max-width: 100%;
   }
@@ -1954,10 +1667,6 @@
     min-width: 0;
   }
 
-  .agent-studio-page .studio-production-brief {
-    grid-template-columns: 1fr;
-  }
-
   .agent-studio-page .studio-check-metrics {
     grid-template-columns: 1fr;
   }
@@ -1973,20 +1682,6 @@
 
   .agent-studio-page .studio-mobile-inspector-trigger {
     display: block;
-  }
-
-  .agent-studio-page .blueprint-rail-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .agent-studio-page .blueprint-rail-summary div,
-  .agent-studio-page .blueprint-rail-summary div:last-child {
-    border-right: 0;
-    border-bottom: 1px solid var(--studio-soft-line);
-  }
-
-  .agent-studio-page .blueprint-rail-summary div:last-child {
-    border-bottom: 0;
   }
 }
 

@@ -12,8 +12,6 @@ import type {
 import {
   AgentBlueprintRail,
   AgentStudioHeader,
-  StudioProductionBrief,
-  StudioProductionPath,
   StudioInspectorPanel,
   StudioStepNav,
 } from './AgentStudioChrome';
@@ -76,7 +74,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
     runtimeManifestEnvelope,
     releases,
     uploadQuota,
-    agentKnowledgeCounts,
     invalidateAgentGovernance,
     invalidateAgentTestData,
   } = useAgentStudioData({ editingAgent, agents });
@@ -156,51 +153,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
       : !backendCanPublish
         ? '上线检查未通过'
         : '';
-    const releasePath = [
-      {
-        key: 'save' as const,
-        label: '保存配置',
-        passed: Boolean(editingAgent && !hasUnsavedChanges),
-        detail: hasUnsavedChanges ? '配置待保存' : editingAgent ? '配置已保存' : '等待保存',
-      },
-      {
-        key: 'runtime' as const,
-        label: '运行就绪',
-        passed: currentPreflight?.can_run || false,
-        detail: currentPreflight?.can_run ? '依赖可用' : '依赖未就绪',
-      },
-      {
-        key: 'validation' as const,
-        label: '业务验证',
-        passed: Boolean(currentPreflight?.can_run && passedCases.length > 0),
-        detail: passedCases.length > 0 ? '已有验证记录' : '需要业务样本',
-      },
-      {
-        key: 'evaluation' as const,
-        label: '上线验收',
-        passed: Boolean((coverage?.failed ?? 0) === 0 && (coverage?.stale ?? 0) === 0 && (coverage?.untested ?? 0) === 0 && (coverage?.active_cases ?? activeCases.length) > 0),
-        detail: `${coverage?.passed ?? passedCases.length}/${coverage?.active_cases ?? activeCases.length} 通过`,
-      },
-      {
-        key: 'release' as const,
-        label: '上线版本',
-        passed: Boolean(
-          (editingAgent?.status === 'published' && !hasPendingPublish && hasRelease)
-          || canEnableRelease,
-        ),
-        detail: canEnableRelease
-          ? '上线版本已停用，可启用'
-          : editingAgent?.status === 'inactive' && hasRelease && hasPendingPublish
-            ? '已停用，配置待重新上线'
-            : editingAgent?.status === 'inactive' && hasRelease
-              ? '已有停用版本'
-              : editingAgent?.status === 'published' && !hasPendingPublish && hasRelease
-          ? '已生成上线版本'
-          : backendCanPublish
-            ? '可以生成上线版本'
-            : '等待检查通过',
-      },
-    ];
     return {
       canRun: currentPreflight?.can_run || false,
       canPublish: backendCanPublish,
@@ -241,7 +193,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
       knowledgeChunkCount: (knowledge.data || []).reduce((sum, item) => sum + (item.chunk_count || 0), 0),
       releaseKnowledgeCount: latestRelease?.knowledge_snapshot_count || 0,
       releaseKnowledgeBytes: latestRelease?.knowledge_snapshot_bytes || 0,
-      releasePath,
     };
   }, [
     completeness.data?.score,
@@ -430,6 +381,7 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
       onPublish={studioActions.publishCurrentAgent}
     />
   );
+  const activeStepMeta = studioSteps.find((item) => item.key === activeStudioStep) || studioSteps[0];
 
   return (
     <>
@@ -437,7 +389,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
         <AgentBlueprintRail
           agents={agents}
           editingAgent={editingAgent}
-          knowledgeCounts={agentKnowledgeCounts.data}
           canEdit={canEdit}
           onCreate={() => (canEdit ? selectAgent(null) : studioActions.warnReadOnly())}
           onSelect={selectAgent}
@@ -464,8 +415,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
                 return editingAgent && studioActions.deactivateAgent.mutate(editingAgent.id);
               }}
             />
-            <StudioProductionBrief inspector={studioInspector} editingAgent={editingAgent} />
-            <StudioProductionPath items={studioInspector.releasePath} />
             <div className="studio-mobile-inspector-trigger">
               <Button
                 type="primary"
@@ -482,6 +431,13 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
                 onChange={showStudioSection}
               />
               <div className="builder-layout inline">
+              <div className="studio-current-task">
+                <div>
+                  <span>当前任务 · {activeStepMeta.group}</span>
+                  <h3>{activeStepMeta.title}</h3>
+                  <p>{activeStepMeta.desc}</p>
+                </div>
+              </div>
               <section className={studioPanelClass('profile')} id="studio-profile">
                 <ProfilePanel llmOptions={llmOptions} modelOptions={selectedLlmModels} canEdit={canEdit} />
               </section>
