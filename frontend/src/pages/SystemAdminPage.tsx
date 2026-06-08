@@ -1,8 +1,18 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Button, Drawer, Form, Input, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import { AlertTriangle, Copy, KeyRound, Plus, RefreshCw, Settings, ShieldCheck, Users } from 'lucide-react';
 import { EntityCell, PageSurface, StatusTag, TableToolbar, WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter } from '@/components/ui/sheet';
+import { Confirm } from '@/components/ui/confirm';
+import { Spinner } from '@/components/ui/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Field, SectionCard } from '@/components/layout';
+import { toast } from '@/lib/toast';
 import { api } from '../services/api';
 import { productTerms } from '../services/productLanguage';
 import { workspaceApi } from '../services/workspaceApi';
@@ -15,11 +25,11 @@ const roleRank: Record<OrganizationRole, number> = {
   owner: 40,
 };
 
-const roleMeta: Record<OrganizationRole, { label: string; color: string; description: string }> = {
-  owner: { label: '所有者', color: 'gold', description: '组织、成员与关键策略最高权限' },
-  admin: { label: '管理员', color: 'blue', description: '成员治理、密钥和运维策略' },
-  editor: { label: '编辑者', color: 'processing', description: `Agent、${productTerms.action}、${productTerms.capabilityPackage}配置写入` },
-  viewer: { label: '观察者', color: 'default', description: '只读查看运行、配置和审计' },
+const roleMeta: Record<OrganizationRole, { label: string; description: string }> = {
+  owner: { label: '所有者', description: '组织、成员与关键策略最高权限' },
+  admin: { label: '管理员', description: '成员治理、密钥和运维策略' },
+  editor: { label: '编辑者', description: `Agent、${productTerms.action}、${productTerms.capabilityPackage}配置写入` },
+  viewer: { label: '观察者', description: '只读查看运行、配置和审计' },
 };
 
 function formatDate(value?: string | null) {
@@ -37,21 +47,31 @@ function formatRevokedBy(record: OrganizationApiToken) {
 }
 
 function formatExpiresAt(value?: string | null) {
-  return value ? formatDate(value) : <Tag color="warning">永不过期</Tag>;
+  return value ? formatDate(value) : <Badge variant="warning">永不过期</Badge>;
 }
 
-function shortId(value: string) {
+function shortTokenId(value: string) {
   return value.length > 14 ? `${value.slice(0, 10)}...${value.slice(-4)}` : value;
 }
 
-function roleTag(role: OrganizationRole) {
+function RoleTag({ role }: { role: OrganizationRole }) {
   const meta = roleMeta[role];
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  const variantMap: Record<OrganizationRole, 'warning' | 'info' | 'default' | 'muted'> = {
+    owner: 'warning',
+    admin: 'info',
+    editor: 'default',
+    viewer: 'muted',
+  };
+  return <Badge variant={variantMap[role]}>{meta.label}</Badge>;
 }
 
-function readinessStatusTag(record: PlatformReadinessCheck) {
-  if (record.ready) return <Tag color="success">通过</Tag>;
-  return <Tag color={record.severity === 'blocker' ? 'error' : 'warning'}>{record.severity === 'blocker' ? '未通过' : productTerms.riskNotice}</Tag>;
+function ReadinessStatusBadge({ record }: { record: PlatformReadinessCheck }) {
+  if (record.ready) return <Badge variant="success">通过</Badge>;
+  return (
+    <Badge variant={record.severity === 'blocker' ? 'destructive' : 'warning'}>
+      {record.severity === 'blocker' ? '未通过' : productTerms.riskNotice}
+    </Badge>
+  );
 }
 
 function readinessSeverityLabel(value: PlatformReadinessCheck['severity']) {
@@ -74,11 +94,25 @@ export default function SystemAdminPage() {
   const [passwordResetMember, setPasswordResetMember] = useState<OrganizationMemberUser | null>(null);
   const [tokenDrawerOpen, setTokenDrawerOpen] = useState(false);
   const [createdToken, setCreatedToken] = useState<string>('');
-  const [memberForm] = Form.useForm();
-  const [passwordForm] = Form.useForm();
-  const [tokenForm] = Form.useForm();
+
+  // Controlled form state — member create
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberDisplayName, setMemberDisplayName] = useState('');
+  const [memberPassword, setMemberPassword] = useState('');
+  const [memberRole, setMemberRole] = useState<OrganizationRole>('viewer');
+  const [memberErrors, setMemberErrors] = useState<Record<string, string>>({});
+
+  // Controlled form state — password reset
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+
+  // Controlled form state — token create
+  const [tokenName, setTokenName] = useState('');
+  const [tokenExpiresAt, setTokenExpiresAt] = useState('');
+  const [tokenErrors, setTokenErrors] = useState<Record<string, string>>({});
+
   const queryClient = useQueryClient();
-  const { message } = App.useApp();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const workspace = useQuery({ queryKey: ['workspace', 'operations', 'access-control'], queryFn: workspaceApi.operations, enabled: true });
   const currentRole = me.data?.membership.role || 'viewer';
@@ -132,11 +166,11 @@ export default function SystemAdminPage() {
     mutationFn: ({ id, role, status }: { id: string; role?: OrganizationRole; status?: 'active' | 'disabled' }) =>
       api.updateOrganizationMember(id, { role, status }),
     onSuccess: () => {
-      message.success('成员权限已更新');
+      toast.success('成员权限已更新');
       refreshGovernance();
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '成员权限更新失败');
+      toast.error(error instanceof Error ? error.message : '成员权限更新失败');
     },
   });
 
@@ -144,13 +178,17 @@ export default function SystemAdminPage() {
     mutationFn: (values: { email: string; display_name: string; password: string; role: OrganizationRole }) =>
       api.createOrganizationMember(values),
     onSuccess: () => {
-      message.success('成员已创建');
-      memberForm.resetFields();
+      toast.success('成员已创建');
+      setMemberEmail('');
+      setMemberDisplayName('');
+      setMemberPassword('');
+      setMemberRole('viewer');
+      setMemberErrors({});
       setMemberDrawerOpen(false);
       refreshGovernance();
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '成员创建失败');
+      toast.error(error instanceof Error ? error.message : '成员创建失败');
     },
   });
 
@@ -158,37 +196,39 @@ export default function SystemAdminPage() {
     mutationFn: ({ id, password }: { id: string; password: string }) =>
       api.resetOrganizationMemberPassword(id, { password }),
     onSuccess: () => {
-      message.success('成员密码已重置');
-      passwordForm.resetFields();
+      toast.success('成员密码已重置');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordErrors({});
       setPasswordResetMember(null);
       refreshGovernance();
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '密码重置失败');
+      toast.error(error instanceof Error ? error.message : '密码重置失败');
     },
   });
 
   const revokeToken = useMutation({
     mutationFn: (id: string) => api.revokeApiToken(id),
     onSuccess: () => {
-      message.success('访问令牌已撤销');
+      toast.success('访问令牌已撤销');
       queryClient.invalidateQueries({ queryKey: ['api-tokens'] });
       queryClient.invalidateQueries({ queryKey: ['organization-api-tokens'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '令牌撤销失败');
+      toast.error(error instanceof Error ? error.message : '令牌撤销失败');
     },
   });
 
   const revokeOrganizationToken = useMutation({
     mutationFn: (id: string) => api.revokeOrganizationApiToken(id),
     onSuccess: () => {
-      message.success('组织访问令牌已撤销');
+      toast.success('组织访问令牌已撤销');
       queryClient.invalidateQueries({ queryKey: ['organization-api-tokens'] });
       queryClient.invalidateQueries({ queryKey: ['api-tokens'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '组织令牌撤销失败');
+      toast.error(error instanceof Error ? error.message : '组织令牌撤销失败');
     },
   });
 
@@ -196,23 +236,25 @@ export default function SystemAdminPage() {
     mutationFn: (values: { name: string; expires_at?: string }) =>
       api.createApiToken({ name: values.name, expires_at: values.expires_at || null }),
     onSuccess: (result) => {
-      message.success('访问令牌已创建');
+      toast.success('访问令牌已创建');
       setCreatedToken(result.token);
-      tokenForm.resetFields();
+      setTokenName('');
+      setTokenExpiresAt('');
+      setTokenErrors({});
       queryClient.invalidateQueries({ queryKey: ['api-tokens'] });
       queryClient.invalidateQueries({ queryKey: ['organization-api-tokens'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '令牌创建失败');
+      toast.error(error instanceof Error ? error.message : '令牌创建失败');
     },
   });
 
   const copyCreatedToken = async () => {
     try {
       await navigator.clipboard.writeText(createdToken);
-      message.success('令牌已复制');
+      toast.success('令牌已复制');
     } catch {
-      message.warning('无法自动复制，请手动选中令牌');
+      toast.warning('无法自动复制，请手动选中令牌');
     }
   };
 
@@ -230,6 +272,57 @@ export default function SystemAdminPage() {
     [roleOptions],
   );
 
+  // Handlers for form submissions
+  function handleCreateMember(e: React.FormEvent) {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!memberEmail) errors.email = '请输入邮箱';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail)) errors.email = '邮箱格式不正确';
+    if (!memberDisplayName) errors.display_name = '请输入姓名';
+    if (!memberPassword) errors.password = '请输入初始密码';
+    else if (memberPassword.length < 8) errors.password = '至少 8 个字符';
+    if (!memberRole) errors.role = '请选择角色';
+    if (Object.keys(errors).length > 0) {
+      setMemberErrors(errors);
+      return;
+    }
+    setMemberErrors({});
+    createMember.mutate({ email: memberEmail, display_name: memberDisplayName, password: memberPassword, role: memberRole });
+  }
+
+  function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordResetMember) return;
+    const errors: Record<string, string> = {};
+    if (!newPassword) errors.password = '请输入新密码';
+    else if (newPassword.length < 8) errors.password = '至少 8 个字符';
+    if (!confirmPassword) errors.confirm_password = '请再次输入新密码';
+    else if (newPassword !== confirmPassword) errors.confirm_password = '两次输入的密码不一致';
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+    setPasswordErrors({});
+    resetPassword.mutate({ id: passwordResetMember.id, password: newPassword });
+  }
+
+  function handleCreateToken(e: React.FormEvent) {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!tokenName) errors.name = '请输入令牌名称';
+    if (Object.keys(errors).length > 0) {
+      setTokenErrors(errors);
+      return;
+    }
+    setTokenErrors({});
+    createToken.mutate({ name: tokenName, expires_at: tokenExpiresAt || undefined });
+  }
+
+  const readinessBadgeVariant =
+    !canManageMembers ? 'muted' :
+    readiness.data?.status === 'ready' ? 'success' :
+    readiness.data?.status === 'blocked' ? 'destructive' : 'warning';
+
   return (
     <WorkspacePage
       icon={<Settings size={14} />}
@@ -237,558 +330,679 @@ export default function SystemAdminPage() {
       title="访问控制"
       description="管理成员、角色、访问令牌与外部系统调用 Agent 的权限边界。"
       actions={
-        <Button icon={<RefreshCw size={15} />} onClick={refreshGovernance}>
+        <Button variant="outline" size="sm" onClick={refreshGovernance}>
+          <RefreshCw size={15} />
           刷新
         </Button>
       }
     >
-      <section className="surface page-surface operations-workspace-summary">
-        <div className="surface-header">
-          <div>
-            <h2>访问与接入状态</h2>
-            <p>访问控制与运维视图共用后端 workspace read model，统一呈现成员、令牌和平台风险。</p>
-          </div>
+      {/* Workspace summary */}
+      <SectionCard title="访问与接入状态" description="访问控制与运维视图共用后端 workspace read model，统一呈现成员、令牌和平台风险。">
+        <div className="space-y-4">
+          <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+          <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有平台级治理未通过项。" />
         </div>
-        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
-        <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有平台级治理未通过项。" />
-      </section>
-      <section className="admin-command-center" aria-label="组织治理总览">
-        <div className="admin-command-copy">
-          <span className={`admin-status-badge ${readinessTone}`}>
-            {canManageMembers ? readinessLabel : '只读视图'}
-          </span>
-          <h2>组织访问控制台</h2>
-          <p className="admin-command-context">
-            <strong>{organizationName}</strong>
-            <span>当前角色 {currentRoleLabel}</span>
-          </p>
-          <div className="admin-command-actions">
-            <Button
-              icon={<RefreshCw size={15} />}
-              disabled={!canManageMembers}
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['platform-readiness'] })}
-            >
-              重新检查
-            </Button>
-            {canManageMembers && (
-              <Button type="primary" icon={<Plus size={15} />} onClick={() => setMemberDrawerOpen(true)}>
-                新建成员
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="admin-ledger">
-          <div>
-            <span>组织</span>
-            <strong>{organizationName}</strong>
-            <em>{currentRoleLabel}</em>
-          </div>
-          <div>
-            <span>成员</span>
-            <strong>{canManageMembers ? memberRows.length : '-'}</strong>
-            <em>{canManageMembers ? `${activeMembers} 启用 / ${disabledMembers} 停用` : '需管理员权限'}</em>
-          </div>
-          <div>
-            <span>{canManageMembers ? '组织令牌' : '我的令牌'}</span>
-            <strong>{canManageMembers ? activeOrganizationTokens : personalTokenRows.length}</strong>
-            <em>{canManageMembers ? `${neverExpiringOrganizationTokens} 永不过期` : '当前账号名下'}</em>
-          </div>
-          <div>
-            <span>就绪未通过</span>
-            <strong>{canManageMembers ? readinessBlockers.length : '-'}</strong>
-            <em>{canManageMembers ? `${readinessIssues} 个待处理项` : '需管理员权限'}</em>
-          </div>
-        </div>
-      </section>
+      </SectionCard>
 
-      <div className="admin-governance-grid">
-        <PageSurface
-          className="admin-governance-surface"
-          title="成员与角色"
-          description="所有者冗余、成员启停和当前管理权限。"
-        >
-          <div className="admin-risk-list">
-            <div className={ownerCount >= 2 ? 'resolved' : 'attention'}>
-              <ShieldCheck size={16} />
-              <strong>所有者冗余</strong>
-              <span>{ownerCount >= 2 ? `${ownerCount} 个所有者，具备交接冗余` : `${ownerCount} 个所有者，建议至少保留 2 个`}</span>
+      {/* Command center summary */}
+      <div className="rounded-xl border border-border bg-card p-5" aria-label="组织治理总览">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3">
+            <Badge variant={readinessTone === 'ready' ? 'success' : readinessTone === 'blocked' ? 'destructive' : readinessTone === 'readonly' ? 'muted' : 'warning'} className="w-fit">
+              {canManageMembers ? readinessLabel : '只读视图'}
+            </Badge>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">组织访问控制台</h2>
+              <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <strong className="text-foreground">{organizationName}</strong>
+                <span>当前角色 {currentRoleLabel}</span>
+              </p>
             </div>
-            <div className={activeMembers ? 'resolved' : 'attention'}>
-              <Users size={16} />
-              <strong>可用成员</strong>
-              <span>{activeMembers} 个启用成员，{disabledMembers} 个停用成员</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canManageMembers}
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['platform-readiness'] })}
+              >
+                <RefreshCw size={15} />
+                重新检查
+              </Button>
+              {canManageMembers && (
+                <Button size="sm" onClick={() => setMemberDrawerOpen(true)}>
+                  <Plus size={15} />
+                  新建成员
+                </Button>
+              )}
             </div>
-            <div className={canManageMembers ? 'resolved' : 'readonly'}>
-              <ShieldCheck size={16} />
-              <strong>当前权限</strong>
-              <span>{roleMeta[currentRole].description}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <span className="text-xs text-muted-foreground">组织</span>
+              <strong className="text-sm font-semibold text-foreground">{organizationName}</strong>
+              <em className="text-xs not-italic text-muted-foreground">{currentRoleLabel}</em>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <span className="text-xs text-muted-foreground">成员</span>
+              <strong className="text-sm font-semibold text-foreground">{canManageMembers ? memberRows.length : '-'}</strong>
+              <em className="text-xs not-italic text-muted-foreground">{canManageMembers ? `${activeMembers} 启用 / ${disabledMembers} 停用` : '需管理员权限'}</em>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <span className="text-xs text-muted-foreground">{canManageMembers ? '组织令牌' : '我的令牌'}</span>
+              <strong className="text-sm font-semibold text-foreground">{canManageMembers ? activeOrganizationTokens : personalTokenRows.length}</strong>
+              <em className="text-xs not-italic text-muted-foreground">{canManageMembers ? `${neverExpiringOrganizationTokens} 永不过期` : '当前账号名下'}</em>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <span className="text-xs text-muted-foreground">就绪未通过</span>
+              <strong className="text-sm font-semibold text-foreground">{canManageMembers ? readinessBlockers.length : '-'}</strong>
+              <em className="text-xs not-italic text-muted-foreground">{canManageMembers ? `${readinessIssues} 个待处理项` : '需管理员权限'}</em>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Governance grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <PageSurface title="成员与角色" description="所有者冗余、成员启停和当前管理权限。">
+          <div className="space-y-2">
+            <div className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${ownerCount >= 2 ? 'bg-success/8 text-success' : 'bg-warning/8 text-warning'}`}>
+              <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">所有者冗余</strong>
+                <span className="text-xs text-muted-foreground">{ownerCount >= 2 ? `${ownerCount} 个所有者，具备交接冗余` : `${ownerCount} 个所有者，建议至少保留 2 个`}</span>
+              </div>
+            </div>
+            <div className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${activeMembers ? 'bg-success/8 text-success' : 'bg-warning/8 text-warning'}`}>
+              <Users size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">可用成员</strong>
+                <span className="text-xs text-muted-foreground">{activeMembers} 个启用成员，{disabledMembers} 个停用成员</span>
+              </div>
+            </div>
+            <div className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${canManageMembers ? 'bg-success/8 text-success' : 'bg-muted/40 text-muted-foreground'}`}>
+              <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">当前权限</strong>
+                <span className="text-xs text-muted-foreground">{roleMeta[currentRole].description}</span>
+              </div>
             </div>
           </div>
         </PageSurface>
-        <PageSurface
-          className="admin-governance-surface"
-          title="访问令牌"
-          description="组织令牌有效期、失效状态和撤销边界。"
-        >
-          <div className="admin-risk-list">
-            <div className={neverExpiringOrganizationTokens ? 'attention' : 'resolved'}>
-              <KeyRound size={16} />
-              <strong>永不过期令牌</strong>
-              <span>{canManageMembers ? `${neverExpiringOrganizationTokens} 个组织令牌未设置过期时间` : '管理员可查看组织级风险'}</span>
+        <PageSurface title="访问令牌" description="组织令牌有效期、失效状态和撤销边界。">
+          <div className="space-y-2">
+            <div className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${neverExpiringOrganizationTokens ? 'bg-warning/8 text-warning' : 'bg-success/8 text-success'}`}>
+              <KeyRound size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">永不过期令牌</strong>
+                <span className="text-xs text-muted-foreground">{canManageMembers ? `${neverExpiringOrganizationTokens} 个组织令牌未设置过期时间` : '管理员可查看组织级风险'}</span>
+              </div>
             </div>
-            <div className={expiredOrganizationTokens ? 'attention' : 'resolved'}>
-              <AlertTriangle size={16} />
-              <strong>疑似失效</strong>
-              <span>{canManageMembers ? `${expiredOrganizationTokens} 个活跃令牌已超过过期时间` : `${personalTokenRows.length} 个个人令牌`}</span>
+            <div className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${expiredOrganizationTokens ? 'bg-warning/8 text-warning' : 'bg-success/8 text-success'}`}>
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">疑似失效</strong>
+                <span className="text-xs text-muted-foreground">{canManageMembers ? `${expiredOrganizationTokens} 个活跃令牌已超过过期时间` : `${personalTokenRows.length} 个个人令牌`}</span>
+              </div>
             </div>
-            <div className="readonly">
-              <KeyRound size={16} />
-              <strong>完整令牌</strong>
-              <span>只在创建时展示一次，后续只能撤销后重建。</span>
+            <div className="flex items-start gap-3 rounded-lg bg-muted/40 px-3 py-2.5 text-muted-foreground">
+              <KeyRound size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <strong className="block text-sm font-medium">完整令牌</strong>
+                <span className="text-xs text-muted-foreground">只在创建时展示一次，后续只能撤销后重建。</span>
+              </div>
             </div>
           </div>
         </PageSurface>
       </div>
 
-      <PageSurface className="table-surface admin-table-surface">
+      {/* Platform readiness table */}
+      <PageSurface>
         <TableToolbar
           title="平台就绪检查"
           description="生产交付前的关键配置检查；检查依据仅管理员可见。"
           actions={
-            <Space>
-              <Tag color={!canManageMembers ? 'default' : readiness.data?.status === 'ready' ? 'success' : readiness.data?.status === 'blocked' ? 'error' : 'warning'}>
-                {readinessLabel}
-              </Tag>
+            <div className="flex items-center gap-2">
+              <Badge variant={readinessBadgeVariant}>{readinessLabel}</Badge>
               <Button
-                icon={<RefreshCw size={15} />}
+                variant="outline"
+                size="sm"
                 disabled={!canManageMembers}
                 title={canManageMembers ? '重新检查' : '需管理员权限'}
                 onClick={() => queryClient.invalidateQueries({ queryKey: ['platform-readiness'] })}
               >
+                <RefreshCw size={15} />
                 重新检查
               </Button>
-            </Space>
+            </div>
           }
         />
-        <Table
-          rowKey="key"
-          size="small"
-          loading={readiness.isLoading}
-          dataSource={canManageMembers ? readiness.data?.checks || [] : []}
-          locale={{ emptyText: canManageMembers ? '暂无就绪检查结果' : '当前角色无权查看部署检查依据' }}
-          pagination={false}
-          scroll={{ x: 960 }}
-          columns={[
-            {
-              title: '检查项',
-              dataIndex: 'label',
-              width: 220,
-              render: (_, record: PlatformReadinessCheck) => (
-                <EntityCell
-                  icon={<ShieldCheck size={18} />}
-                  title={record.label}
-                  subtitle={record.key}
-                />
-              ),
-            },
-            {
-              title: '状态',
-              width: 110,
-              render: (_, record: PlatformReadinessCheck) => readinessStatusTag(record),
-            },
-            {
-              title: '级别',
-              dataIndex: 'severity',
-              width: 100,
-              render: (value: PlatformReadinessCheck['severity']) => (
-                <Tag color={value === 'blocker' ? 'error' : value === 'warning' ? 'warning' : 'default'}>
-                  {readinessSeverityLabel(value)}
-                </Tag>
-              ),
-            },
-            {
-              title: '说明',
-              dataIndex: 'detail',
-              width: 320,
-            },
-            {
-              title: '依据',
-              dataIndex: 'evidence',
-              render: (value: PlatformReadinessCheck['evidence']) => (
-                <span className="readiness-evidence">{JSON.stringify(value)}</span>
-              ),
-            },
-          ]}
-        />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[220px]">检查项</TableHead>
+              <TableHead className="w-[110px]">状态</TableHead>
+              <TableHead className="w-[100px]">级别</TableHead>
+              <TableHead className="w-[320px]">说明</TableHead>
+              <TableHead>依据</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {readiness.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center">
+                  <Spinner className="mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : (canManageMembers ? readiness.data?.checks || [] : []).length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  {canManageMembers ? '暂无就绪检查结果' : '当前角色无权查看部署检查依据'}
+                </TableCell>
+              </TableRow>
+            ) : (
+              (canManageMembers ? readiness.data?.checks || [] : []).map((record) => (
+                <TableRow key={record.key}>
+                  <TableCell>
+                    <EntityCell
+                      icon={<ShieldCheck size={18} />}
+                      title={record.label}
+                      subtitle={record.key}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ReadinessStatusBadge record={record} />
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={record.severity === 'blocker' ? 'destructive' : record.severity === 'warning' ? 'warning' : 'muted'}>
+                      {readinessSeverityLabel(record.severity)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{record.detail}</TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">{JSON.stringify(record.evidence)}</span>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </PageSurface>
 
-      <PageSurface className="table-surface admin-table-surface">
+      {/* Members table */}
+      <PageSurface>
         <TableToolbar
           title="成员与角色"
           description="管理员可调整编辑者和观察者；所有者角色只能由所有者授予或撤销。"
           actions={
-            <Space>
-              <Tag color={canManageMembers ? 'success' : 'default'}>{canManageMembers ? '可管理' : '只读'}</Tag>
+            <div className="flex items-center gap-2">
+              <Badge variant={canManageMembers ? 'success' : 'muted'}>{canManageMembers ? '可管理' : '只读'}</Badge>
               {canManageMembers && (
-                <Button type="primary" icon={<Plus size={15} />} onClick={() => setMemberDrawerOpen(true)}>
+                <Button size="sm" onClick={() => setMemberDrawerOpen(true)}>
+                  <Plus size={15} />
                   新建成员
                 </Button>
               )}
-            </Space>
+            </div>
           }
         />
-        <Table
-          rowKey="id"
-          loading={members.isLoading}
-          dataSource={members.data || []}
-          scroll={{ x: 1120 }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          columns={[
-            {
-              title: '成员',
-              dataIndex: 'user_display_name',
-              width: 260,
-              render: (_, record: OrganizationMemberUser) => (
-                <EntityCell
-                  icon={<Users size={18} />}
-                  title={record.user_display_name || record.user_email}
-                  subtitle={record.user_email}
-                />
-              ),
-            },
-            {
-              title: '角色',
-              dataIndex: 'role',
-              width: 150,
-              render: (value: OrganizationRole) => roleTag(value),
-              filters: (Object.keys(roleMeta) as OrganizationRole[]).map((role) => ({ text: roleMeta[role].label, value: role })),
-              onFilter: (value, record) => record.role === value,
-            },
-            {
-              title: '成员状态',
-              dataIndex: 'status',
-              width: 120,
-              render: (value) => <StatusTag status={value} />,
-              filters: [
-                { text: '启用', value: 'active' },
-                { text: '停用', value: 'disabled' },
-              ],
-              onFilter: (value, record) => record.status === value,
-            },
-            { title: '账号状态', dataIndex: 'user_status', width: 120, render: (value) => <StatusTag status={value} /> },
-            { title: '最近登录', dataIndex: 'user_last_login_at', width: 190, render: formatDate },
-            { title: '加入时间', dataIndex: 'created_at', width: 190, render: formatDate },
-            {
-              title: '操作',
-              width: 310,
-              fixed: 'right',
-              render: (_, record: OrganizationMemberUser) => {
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[260px]">成员</TableHead>
+              <TableHead className="w-[150px]">角色</TableHead>
+              <TableHead className="w-[120px]">成员状态</TableHead>
+              <TableHead className="w-[120px]">账号状态</TableHead>
+              <TableHead className="w-[190px]">最近登录</TableHead>
+              <TableHead className="w-[190px]">加入时间</TableHead>
+              <TableHead className="w-[310px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {members.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-8 text-center">
+                  <Spinner className="mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : memberRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  暂无成员
+                </TableCell>
+              </TableRow>
+            ) : (
+              memberRows.map((record) => {
                 const isSelf = record.user_id === me.data?.user.id;
                 const isLastActiveOwner = record.role === 'owner' && record.status === 'active' && ownerCount <= 1;
                 const canEditOwner = currentRole === 'owner';
                 const roleDisabled = !canManageMembers || isSelf || (record.role === 'owner' && !canEditOwner) || isLastActiveOwner;
                 const statusDisabled = !canManageMembers || isSelf || isLastActiveOwner || (record.role === 'owner' && !canEditOwner);
                 const passwordDisabled = !canManageMembers || isSelf || (record.role === 'owner' && !canEditOwner);
-
                 return (
-                  <Space>
-                    <Select
-                      size="small"
-                      value={record.role}
-                      style={{ width: 124 }}
-                      disabled={roleDisabled}
-                      options={roleOptions}
-                      onChange={(role) => updateMember.mutate({ id: record.id, role })}
-                    />
-                    {record.status === 'active' ? (
-                      <Popconfirm
-                        title="停用该成员？"
-                        description="停用后该成员在当前组织下的访问令牌会立即撤销。"
-                        onConfirm={() => updateMember.mutate({ id: record.id, status: 'disabled' })}
-                      >
-                        <Button type="link" danger disabled={statusDisabled} loading={updateMember.isPending}>
-                          停用
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <EntityCell
+                        icon={<Users size={18} />}
+                        title={record.user_display_name || record.user_email}
+                        subtitle={record.user_email}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <RoleTag role={record.role} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusTag status={record.status} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusTag status={record.user_status} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(record.user_last_login_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(record.created_at)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={record.role}
+                          disabled={roleDisabled}
+                          onValueChange={(role) => updateMember.mutate({ id: record.id, role: role as OrganizationRole })}
+                        >
+                          <SelectTrigger className="h-8 w-[124px] text-xs" disabled={roleDisabled}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {roleOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {record.status === 'active' ? (
+                          <Confirm
+                            title="停用该成员？"
+                            description="停用后该成员在当前组织下的访问令牌会立即撤销。"
+                            disabled={statusDisabled}
+                            onConfirm={() => updateMember.mutate({ id: record.id, status: 'disabled' })}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={statusDisabled}
+                            >
+                              {updateMember.isPending ? <Spinner className="size-3" /> : null}
+                              停用
+                            </Button>
+                          </Confirm>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canManageMembers || (record.role === 'owner' && !canEditOwner)}
+                            onClick={() => updateMember.mutate({ id: record.id, status: 'active' })}
+                          >
+                            {updateMember.isPending ? <Spinner className="size-3" /> : null}
+                            启用
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={passwordDisabled}
+                          onClick={() => {
+                            setNewPassword('');
+                            setConfirmPassword('');
+                            setPasswordErrors({});
+                            setPasswordResetMember(record);
+                          }}
+                        >
+                          重置密码
                         </Button>
-                      </Popconfirm>
-                    ) : (
-                      <Button
-                        type="link"
-                        disabled={!canManageMembers || (record.role === 'owner' && !canEditOwner)}
-                        loading={updateMember.isPending}
-                        onClick={() => updateMember.mutate({ id: record.id, status: 'active' })}
-                      >
-                        启用
-                      </Button>
-                    )}
-                    <Button type="link" disabled={passwordDisabled} onClick={() => setPasswordResetMember(record)}>
-                      重置密码
-                    </Button>
-                  </Space>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 );
-              },
-            },
-          ]}
-        />
+              })
+            )}
+          </TableBody>
+        </Table>
       </PageSurface>
 
-      <PageSurface className="table-surface admin-table-surface">
+      {/* Organization tokens table */}
+      <PageSurface>
         <TableToolbar
           title="组织访问令牌"
           description="管理员可查看组织内个人 API Token 的归属、有效期和最近使用情况；完整令牌仅在创建时显示一次。"
-          actions={<Tag color={canManageMembers ? 'success' : 'default'}>{canManageMembers ? '管理员可见' : '无管理权限'}</Tag>}
+          actions={
+            <Badge variant={canManageMembers ? 'success' : 'muted'}>{canManageMembers ? '管理员可见' : '无管理权限'}</Badge>
+          }
         />
-        <Table
-          rowKey="id"
-          loading={organizationTokens.isLoading}
-          dataSource={canManageMembers ? organizationTokens.data || [] : []}
-          scroll={{ x: 1420 }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          locale={{ emptyText: canManageMembers ? '暂无组织访问令牌' : '当前角色只能查看个人访问令牌' }}
-          columns={[
-            {
-              title: '令牌',
-              dataIndex: 'name',
-              width: 260,
-              render: (_, record: OrganizationApiToken) => (
-                <EntityCell
-                  icon={<KeyRound size={18} />}
-                  title={record.name}
-                  subtitle={`ID ${shortId(record.id)}`}
-                />
-              ),
-            },
-            {
-              title: '归属成员',
-              dataIndex: 'user_display_name',
-              width: 280,
-              render: (_, record: OrganizationApiToken) => (
-                <EntityCell
-                  icon={<Users size={18} />}
-                  title={record.user_display_name || record.user_email}
-                  subtitle={
-                    <Space size={6} wrap className="admin-token-owner">
-                      <span>{record.user_email}</span>
-                      {record.user_role && roleTag(record.user_role)}
-                    </Space>
-                  }
-                />
-              ),
-            },
-            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
-            { title: '账号状态', dataIndex: 'user_status', width: 120, render: (value) => <StatusTag status={value} /> },
-            { title: '过期时间', dataIndex: 'expires_at', width: 190, render: formatExpiresAt },
-            { title: '最后使用', dataIndex: 'last_used_at', width: 190, render: formatLastUsed },
-            { title: '创建时间', dataIndex: 'created_at', width: 190, render: formatDate },
-            { title: '撤销时间', dataIndex: 'revoked_at', width: 190, render: formatDate },
-            { title: '撤销人', width: 180, render: (_, record: OrganizationApiToken) => formatRevokedBy(record) },
-            {
-              title: '操作',
-              width: 120,
-              fixed: 'right',
-              render: (_, record: OrganizationApiToken) => {
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[260px]">令牌</TableHead>
+              <TableHead className="w-[280px]">归属成员</TableHead>
+              <TableHead className="w-[120px]">状态</TableHead>
+              <TableHead className="w-[120px]">账号状态</TableHead>
+              <TableHead className="w-[190px]">过期时间</TableHead>
+              <TableHead className="w-[190px]">最后使用</TableHead>
+              <TableHead className="w-[190px]">创建时间</TableHead>
+              <TableHead className="w-[190px]">撤销时间</TableHead>
+              <TableHead className="w-[180px]">撤销人</TableHead>
+              <TableHead className="w-[120px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {organizationTokens.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="py-8 text-center">
+                  <Spinner className="mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : (canManageMembers ? organizationTokenRows : []).length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                  {canManageMembers ? '暂无组织访问令牌' : '当前角色只能查看个人访问令牌'}
+                </TableCell>
+              </TableRow>
+            ) : (
+              (canManageMembers ? organizationTokenRows : []).map((record) => {
                 const isOwnerToken = record.user_role === 'owner';
                 const disabled = record.status !== 'active' || (isOwnerToken && currentRole !== 'owner');
                 return (
-                  <Popconfirm
-                    title="撤销组织访问令牌？"
-                    description="撤销后依赖该令牌的自动化任务、CI 或外部集成会立即失效。"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => revokeOrganizationToken.mutate(record.id)}
-                    disabled={disabled}
-                  >
-                    <Button type="link" danger disabled={disabled} loading={revokeOrganizationToken.isPending}>
-                      撤销
-                    </Button>
-                  </Popconfirm>
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <EntityCell
+                        icon={<KeyRound size={18} />}
+                        title={record.name}
+                        subtitle={`ID ${shortTokenId(record.id)}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <EntityCell
+                        icon={<Users size={18} />}
+                        title={record.user_display_name || record.user_email}
+                        subtitle={
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span>{record.user_email}</span>
+                            {record.user_role && <RoleTag role={record.user_role} />}
+                          </span>
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <StatusTag status={record.status} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusTag status={record.user_status} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatExpiresAt(record.expires_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatLastUsed(record.last_used_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(record.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(record.revoked_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatRevokedBy(record)}</TableCell>
+                    <TableCell>
+                      <Confirm
+                        title="撤销组织访问令牌？"
+                        description="撤销后依赖该令牌的自动化任务、CI 或外部集成会立即失效。"
+                        disabled={disabled}
+                        onConfirm={() => revokeOrganizationToken.mutate(record.id)}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={disabled}
+                        >
+                          {revokeOrganizationToken.isPending ? <Spinner className="size-3" /> : null}
+                          撤销
+                        </Button>
+                      </Confirm>
+                    </TableCell>
+                  </TableRow>
                 );
-              },
-            },
-          ]}
-        />
+              })
+            )}
+          </TableBody>
+        </Table>
       </PageSurface>
 
-      <Drawer
-        title="新建本地成员"
-        width={480}
-        open={memberDrawerOpen}
-        onClose={() => setMemberDrawerOpen(false)}
-      >
-        <Form
-          form={memberForm}
-          layout="vertical"
-          initialValues={{ role: 'viewer' }}
-          onFinish={(values) => createMember.mutate(values)}
-        >
-          <Form.Item
-            name="email"
-            label="邮箱"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '邮箱格式不正确' },
-            ]}
-          >
-            <Input placeholder="name@example.com" autoComplete="off" />
-          </Form.Item>
-          <Form.Item name="display_name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
-            <Input placeholder="成员姓名" autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="初始密码"
-            rules={[
-              { required: true, message: '请输入初始密码' },
-              { min: 8, message: '至少 8 个字符' },
-            ]}
-          >
-            <Input.Password autoComplete="new-password" placeholder="至少 8 个字符" />
-          </Form.Item>
-          <Form.Item name="role" label="角色" rules={[{ required: true }]}>
-            <Select options={createRoleOptions} />
-          </Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={createMember.isPending}>
-              创建成员
-            </Button>
-            <Button onClick={() => setMemberDrawerOpen(false)}>取消</Button>
-          </Space>
-        </Form>
-      </Drawer>
-
-      <Drawer
-        title="重置成员密码"
-        width={420}
-        open={Boolean(passwordResetMember)}
-        onClose={() => setPasswordResetMember(null)}
-      >
-        {passwordResetMember && (
-          <Form
-            form={passwordForm}
-            layout="vertical"
-            onFinish={(values) => resetPassword.mutate({ id: passwordResetMember.id, password: values.password })}
-          >
-            <div className="secret-note">
-              <strong>{passwordResetMember.user_display_name || passwordResetMember.user_email}</strong>
-              <span>提交后该成员在当前组织下的既有访问令牌会立即撤销。</span>
-            </div>
-            <Form.Item
-              name="password"
-              label="新密码"
-              rules={[
-                { required: true, message: '请输入新密码' },
-                { min: 8, message: '至少 8 个字符' },
-              ]}
-            >
-              <Input.Password autoComplete="new-password" placeholder="至少 8 个字符" />
-            </Form.Item>
-            <Form.Item
-              name="confirm_password"
-              label="确认新密码"
-              dependencies={['password']}
-              rules={[
-                { required: true, message: '请再次输入新密码' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('password') === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error('两次输入的密码不一致'));
-                  },
-                }),
-              ]}
-            >
-              <Input.Password autoComplete="new-password" placeholder="再次输入新密码" />
-            </Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={resetPassword.isPending}>
-                重置密码
-              </Button>
-              <Button onClick={() => setPasswordResetMember(null)}>取消</Button>
-            </Space>
-          </Form>
-        )}
-      </Drawer>
-
+      {/* Personal tokens table */}
       <PageSurface
-        className="table-surface"
         title="我的访问令牌"
         description="令牌只展示当前账号名下记录；新令牌只在创建时显示一次。"
         actions={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => {
+          <Button size="sm" onClick={() => {
             setCreatedToken('');
             setTokenDrawerOpen(true);
           }}>
+            <Plus size={15} />
             新建令牌
           </Button>
         }
       >
-        <Table
-          rowKey="id"
-          loading={tokens.isLoading}
-          dataSource={tokens.data || []}
-          scroll={{ x: 820 }}
-          pagination={false}
-          columns={[
-            {
-              title: '名称',
-              dataIndex: 'name',
-              width: 240,
-              render: (value: string) => <span className="admin-token-name">{value}</span>,
-            },
-            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
-            { title: '过期时间', dataIndex: 'expires_at', width: 190, render: formatDate },
-            { title: '最后使用', dataIndex: 'last_used_at', width: 190, render: formatDate },
-            { title: '创建时间', dataIndex: 'created_at', width: 190, render: formatDate },
-            {
-              title: '操作',
-              width: 120,
-              render: (_, record: ApiToken) => (
-                <Popconfirm
-                  title="撤销该令牌？"
-                  onConfirm={() => revokeToken.mutate(record.id)}
-                  disabled={record.status !== 'active'}
-                >
-                  <Button type="link" danger disabled={record.status !== 'active'} loading={revokeToken.isPending}>
-                    撤销
-                  </Button>
-                </Popconfirm>
-              ),
-            },
-          ]}
-        />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[240px]">名称</TableHead>
+              <TableHead className="w-[120px]">状态</TableHead>
+              <TableHead className="w-[190px]">过期时间</TableHead>
+              <TableHead className="w-[190px]">最后使用</TableHead>
+              <TableHead className="w-[190px]">创建时间</TableHead>
+              <TableHead className="w-[120px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tokens.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center">
+                  <Spinner className="mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : personalTokenRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  暂无访问令牌
+                </TableCell>
+              </TableRow>
+            ) : (
+              personalTokenRows.map((record: ApiToken) => (
+                <TableRow key={record.id}>
+                  <TableCell className="text-sm font-medium text-foreground">{record.name}</TableCell>
+                  <TableCell>
+                    <StatusTag status={record.status} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatDate(record.expires_at)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatDate(record.last_used_at)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatDate(record.created_at)}</TableCell>
+                  <TableCell>
+                    <Confirm
+                      title="撤销该令牌？"
+                      disabled={record.status !== 'active'}
+                      onConfirm={() => revokeToken.mutate(record.id)}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={record.status !== 'active'}
+                      >
+                        {revokeToken.isPending ? <Spinner className="size-3" /> : null}
+                        撤销
+                      </Button>
+                    </Confirm>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </PageSurface>
 
-      <Drawer
-        title="新建访问令牌"
-        width={520}
-        open={tokenDrawerOpen}
-        onClose={() => setTokenDrawerOpen(false)}
-      >
-        <Form form={tokenForm} layout="vertical" onFinish={(values) => createToken.mutate(values)}>
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入令牌名称' }]}>
-            <Input placeholder="例如 本地调试 / CI 上线 / 运维脚本" autoComplete="off" />
-          </Form.Item>
-          <Form.Item name="expires_at" label="过期时间">
-            <Input placeholder="可选，ISO 时间，例如 2026-12-31T23:59:59+08:00" />
-          </Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={createToken.isPending}>
+      {/* Create member drawer */}
+      <Sheet open={memberDrawerOpen} onOpenChange={setMemberDrawerOpen}>
+        <SheetContent side="right" className="w-[480px] max-w-full">
+          <SheetHeader>
+            <SheetTitle>新建本地成员</SheetTitle>
+          </SheetHeader>
+          <SheetBody>
+            <form id="create-member-form" onSubmit={handleCreateMember} className="space-y-4">
+              <Field label="邮箱" required htmlFor="member-email" hint={memberErrors.email}>
+                <Input
+                  id="member-email"
+                  type="email"
+                  placeholder="name@example.com"
+                  autoComplete="off"
+                  value={memberEmail}
+                  onChange={(e) => setMemberEmail(e.target.value)}
+                  className={memberErrors.email ? 'border-destructive' : ''}
+                />
+              </Field>
+              <Field label="姓名" required htmlFor="member-display-name" hint={memberErrors.display_name}>
+                <Input
+                  id="member-display-name"
+                  placeholder="成员姓名"
+                  autoComplete="off"
+                  value={memberDisplayName}
+                  onChange={(e) => setMemberDisplayName(e.target.value)}
+                  className={memberErrors.display_name ? 'border-destructive' : ''}
+                />
+              </Field>
+              <Field label="初始密码" required htmlFor="member-password" hint={memberErrors.password}>
+                <Input
+                  id="member-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="至少 8 个字符"
+                  value={memberPassword}
+                  onChange={(e) => setMemberPassword(e.target.value)}
+                  className={memberErrors.password ? 'border-destructive' : ''}
+                />
+              </Field>
+              <Field label="角色" required htmlFor="member-role" hint={memberErrors.role}>
+                <Select value={memberRole} onValueChange={(v) => setMemberRole(v as OrganizationRole)}>
+                  <SelectTrigger id="member-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {createRoleOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </form>
+          </SheetBody>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setMemberDrawerOpen(false)}>取消</Button>
+            <Button type="submit" form="create-member-form" disabled={createMember.isPending}>
+              {createMember.isPending ? <Spinner className="size-4" /> : null}
+              创建成员
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Reset password drawer */}
+      <Sheet open={Boolean(passwordResetMember)} onOpenChange={(open) => { if (!open) setPasswordResetMember(null); }}>
+        <SheetContent side="right" className="w-[420px] max-w-full">
+          <SheetHeader>
+            <SheetTitle>重置成员密码</SheetTitle>
+          </SheetHeader>
+          <SheetBody>
+            {passwordResetMember && (
+              <form id="reset-password-form" onSubmit={handleResetPassword} className="space-y-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                  <strong className="block font-medium text-foreground">{passwordResetMember.user_display_name || passwordResetMember.user_email}</strong>
+                  <span className="text-muted-foreground">提交后该成员在当前组织下的既有访问令牌会立即撤销。</span>
+                </div>
+                <Field label="新密码" required htmlFor="new-password" hint={passwordErrors.password}>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="至少 8 个字符"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className={passwordErrors.password ? 'border-destructive' : ''}
+                  />
+                </Field>
+                <Field label="确认新密码" required htmlFor="confirm-password" hint={passwordErrors.confirm_password}>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="再次输入新密码"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={passwordErrors.confirm_password ? 'border-destructive' : ''}
+                  />
+                </Field>
+              </form>
+            )}
+          </SheetBody>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setPasswordResetMember(null)}>取消</Button>
+            <Button type="submit" form="reset-password-form" disabled={resetPassword.isPending}>
+              {resetPassword.isPending ? <Spinner className="size-4" /> : null}
+              重置密码
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Create token drawer */}
+      <Sheet open={tokenDrawerOpen} onOpenChange={setTokenDrawerOpen}>
+        <SheetContent side="right" className="w-[520px] max-w-full">
+          <SheetHeader>
+            <SheetTitle>新建访问令牌</SheetTitle>
+          </SheetHeader>
+          <SheetBody>
+            <form id="create-token-form" onSubmit={handleCreateToken} className="space-y-4">
+              <Field label="名称" required htmlFor="token-name" hint={tokenErrors.name}>
+                <Input
+                  id="token-name"
+                  placeholder="例如 本地调试 / CI 上线 / 运维脚本"
+                  autoComplete="off"
+                  value={tokenName}
+                  onChange={(e) => setTokenName(e.target.value)}
+                  className={tokenErrors.name ? 'border-destructive' : ''}
+                />
+              </Field>
+              <Field label="过期时间" htmlFor="token-expires-at" hint="可选，ISO 时间，例如 2026-12-31T23:59:59+08:00">
+                <Input
+                  id="token-expires-at"
+                  placeholder="可选，ISO 时间，例如 2026-12-31T23:59:59+08:00"
+                  value={tokenExpiresAt}
+                  onChange={(e) => setTokenExpiresAt(e.target.value)}
+                />
+              </Field>
+            </form>
+
+            {createdToken && (
+              <div className="mt-4 space-y-3 rounded-lg border border-warning/40 bg-warning/8 p-4">
+                <div>
+                  <strong className="block text-sm font-medium text-foreground">令牌只显示一次</strong>
+                  <span className="text-xs text-muted-foreground">关闭后无法再次查看完整令牌，请立即保存到安全位置。</span>
+                </div>
+                <Textarea value={createdToken} rows={3} readOnly className="font-mono text-xs" />
+                <Button variant="outline" size="sm" onClick={copyCreatedToken}>
+                  <Copy size={15} />
+                  复制令牌
+                </Button>
+              </div>
+            )}
+          </SheetBody>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setTokenDrawerOpen(false)}>关闭</Button>
+            <Button type="submit" form="create-token-form" disabled={createToken.isPending}>
+              {createToken.isPending ? <Spinner className="size-4" /> : null}
               创建令牌
             </Button>
-            <Button onClick={() => setTokenDrawerOpen(false)}>关闭</Button>
-          </Space>
-        </Form>
-
-        {createdToken && (
-          <div className="secret-note" style={{ marginTop: 16 }}>
-            <strong>令牌只显示一次</strong>
-            <span>关闭后无法再次查看完整令牌，请立即保存到安全位置。</span>
-            <Input.TextArea value={createdToken} rows={3} readOnly />
-            <Button icon={<Copy size={15} />} onClick={copyCreatedToken}>
-              复制令牌
-            </Button>
-          </div>
-        )}
-      </Drawer>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </WorkspacePage>
   );
 }

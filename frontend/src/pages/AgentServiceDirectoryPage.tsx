@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Input, Select } from 'antd';
 import {
   BookOpenCheck,
   CheckCircle2,
   Compass,
+  Copy,
   ExternalLink,
   FileCheck2,
   PlayCircle,
-  ShieldCheck,
-  Copy,
   Search,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { WorkspacePage } from '../components/ui';
-import { agentLifecycleMeta } from '../services/agentLifecycle';
 import { canAtLeast } from '../services/authz';
 import { ServiceIndexItem } from './ServiceIndexItem';
 import {
@@ -124,215 +134,390 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
 
   return (
     <WorkspacePage
-      className="service-directory-page service-workspace-page"
       icon={<Compass size={14} />}
       eyebrow="运营"
       title="Agent 服务目录"
       description="面向业务使用方和外部系统接入方，只展示已上线 Agent，并给出验证入口与 API 调用信息。"
     >
-      <section className="service-atlas">
-        <div className="service-atlas-command">
-          <div className="service-atlas-command-copy">
-            <span>服务目录</span>
-            <strong>{directoryStats.readyForIntegration} 个 Agent 可接入</strong>
-            <p>按业务域、团队、维护人和上线版本筛选；调用标识用于 `POST /v1/responses` 的 model 字段。</p>
+      {/* Command / header strip */}
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+        {/* Title + summary */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-0.5">
+            <span className="text-sm font-semibold text-foreground">服务目录</span>
+            <p className="text-xs text-muted-foreground">
+              按业务域、团队、维护人和上线版本筛选；调用标识用于 `POST /v1/responses` 的 model 字段。
+            </p>
           </div>
-          <div className="service-directory-controls">
-            <Input.Search
-              allowClear
-              size="middle"
-              value={keyword}
-              className="service-atlas-search"
-              placeholder="搜索 Agent、适用任务、业务域、团队或维护人"
-              onChange={(event) => setKeyword(event.target.value)}
-            />
-            <Select
-              allowClear
-              size="middle"
-              placeholder="业务域"
-              value={domainFilter}
-              options={directoryFacets.domains}
-              onChange={setDomainFilter}
-            />
-            <Select
-              allowClear
-              size="middle"
-              placeholder="归属"
-              value={departmentFilter}
-              options={directoryFacets.departments}
-              onChange={setDepartmentFilter}
-            />
-            <Select
-              size="middle"
-              value={readinessFilter}
-              options={[
-                { label: '全部状态', value: 'all' },
-                { label: '仅看可接入', value: 'ready' },
-                { label: '仅看待治理', value: 'governance' },
-              ]}
-              onChange={setReadinessFilter}
-            />
-          </div>
-          <div className="service-directory-ledger" aria-label="Agent 服务目录摘要">
-            <div><span>匹配 Agent</span><strong>{visibleAgents.length}</strong><em>{directoryStats.latestReleaseAt ? `${formatDate(directoryStats.latestReleaseAt)} 最近上线` : '暂无上线记录'}</em></div>
-            <div><span>可接入</span><strong>{directoryStats.readyForIntegration}</strong><em>治理字段完整</em></div>
-            <div><span>待治理</span><strong>{directoryStats.governancePending}</strong><em>需补齐目录信息</em></div>
-            <div><span>维护人</span><strong>{directoryStats.owners}</strong><em>{directoryStats.departments} 个归属团队</em></div>
-          </div>
-          <div className="agent-market-actions" aria-label="Agent 广场入口">
-            <button type="button" onClick={() => setReadinessFilter('ready')}>
-              <CheckCircle2 size={14} />
-              <span>只看可接入</span>
-            </button>
-            <button type="button" disabled={!selectedAgent} onClick={() => selectedAgent && goExperience(selectedAgent.id)}>
-              <PlayCircle size={14} />
-              <span>验证当前 Agent</span>
-            </button>
-            <button type="button" onClick={goStudio} disabled={!canCreateAgent}>
-              <ExternalLink size={14} />
-              <span>维护 Agent</span>
-            </button>
-          </div>
+          <Badge variant="success" className="shrink-0">
+            {directoryStats.readyForIntegration} 个 Agent 可接入
+          </Badge>
         </div>
 
-        <div className="service-atlas-layout">
-          <section className="service-map-board" aria-label="Agent 服务列表">
-            <div className="service-list-head">
-              <div>
-                <Search size={15} />
-                <span>Agent 列表</span>
-                <strong>{visibleAgents.length} / {publishedAgents.length}</strong>
-              </div>
-              <em>先确认边界，再验证或接入</em>
-            </div>
-            {visibleAgents.map(({ agent, release }) => (
-              <ServiceIndexItem
-                key={agent.id}
-                agent={agent}
-                release={release}
-                active={selectedAgent?.id === agent.id}
-                variant="ledger"
-                onSelect={() => setSelectedId(agent.id)}
-              />
-            ))}
-            {!agents.isLoading && publishedAgents.length > 0 && visibleAgents.length === 0 && (
-              <div className="service-workspace-empty">
-                <CheckCircle2 size={18} />
-                <strong>没有匹配的已上线 Agent</strong>
-                <span>当前筛选条件下没有可用 Agent。</span>
-              </div>
+        {/* Filters toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search with clear */}
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={keyword}
+              placeholder="搜索 Agent、适用任务、业务域、团队或维护人"
+              className="pl-8 pr-8"
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            {keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
             )}
-            {!agents.isLoading && !publishedAgents.length && (
-              <div className="service-workspace-empty">
-                <CheckCircle2 size={18} />
-                <strong>暂无已上线 Agent</strong>
-                <span>{canCreateAgent ? '在 Agent Studio 完成上线后会出现在这里。' : '请联系维护人完成 Agent 上线。'}</span>
-                {canCreateAgent && <Button size="small" type="primary" onClick={goStudio}>进入 Agent Studio</Button>}
-              </div>
-            )}
-          </section>
+          </div>
 
-        {selectedAgent && selectedProfile ? (
-          <aside className="service-brief-panel agent-profile-panel" aria-label="Agent 档案">
-            <div className="agent-profile-head">
-              <span>{selectedProfile.domain} · {selectedProfile.department}</span>
-              <h2>{selectedAgent.name}</h2>
-              <p>{selectedProfile.scenario}</p>
+          {/* Domain filter */}
+          <Select value={domainFilter ?? ''} onValueChange={(v) => setDomainFilter(v || undefined)}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="业务域" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">全部业务域</SelectItem>
+              {directoryFacets.domains.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Department filter */}
+          <Select value={departmentFilter ?? ''} onValueChange={(v) => setDepartmentFilter(v || undefined)}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="归属" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">全部归属</SelectItem>
+              {directoryFacets.departments.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Readiness filter */}
+          <Select
+            value={readinessFilter}
+            onValueChange={(v) => setReadinessFilter(v as 'all' | 'ready' | 'governance')}
+          >
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="ready">仅看可接入</SelectItem>
+              <SelectItem value="governance">仅看待治理</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Stats ledger */}
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          aria-label="Agent 服务目录摘要"
+        >
+          {[
+            {
+              label: '匹配 Agent',
+              value: visibleAgents.length,
+              note: directoryStats.latestReleaseAt
+                ? `${formatDate(directoryStats.latestReleaseAt)} 最近上线`
+                : '暂无上线记录',
+            },
+            { label: '可接入', value: directoryStats.readyForIntegration, note: '治理字段完整' },
+            { label: '待治理', value: directoryStats.governancePending, note: '需补齐目录信息' },
+            {
+              label: '维护人',
+              value: directoryStats.owners,
+              note: `${directoryStats.departments} 个归属团队`,
+            },
+          ].map(({ label, value, note }) => (
+            <div
+              key={label}
+              className="flex flex-col gap-0.5 rounded-lg bg-muted/40 px-3 py-2"
+            >
+              <span className="text-[11px] text-muted-foreground">{label}</span>
+              <strong className="text-base font-semibold text-foreground">{value}</strong>
+              <em className="text-[10px] not-italic text-muted-foreground">{note}</em>
             </div>
-            <div className="agent-profile-status">
-              <span className={`service-status-pill ${agentLifecycleMeta[selectedAgent.status].tone}`}>
-                {agentLifecycleMeta[selectedAgent.status].label}
+          ))}
+        </div>
+
+        {/* Quick-action buttons */}
+        <div className="flex flex-wrap items-center gap-2" aria-label="Agent 广场入口">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReadinessFilter('ready')}
+          >
+            <CheckCircle2 className="size-3.5" />
+            只看可接入
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedAgent}
+            onClick={() => selectedAgent && goExperience(selectedAgent.id)}
+          >
+            <PlayCircle className="size-3.5" />
+            验证当前 Agent
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goStudio}
+            disabled={!canCreateAgent}
+          >
+            <ExternalLink className="size-3.5" />
+            维护 Agent
+          </Button>
+        </div>
+      </div>
+
+      {/* Main split layout: list + detail panel */}
+      <div className="flex min-h-0 gap-4">
+        {/* Left: Agent list */}
+        <section
+          className="flex w-[340px] shrink-0 flex-col gap-2 overflow-y-auto"
+          aria-label="Agent 服务列表"
+        >
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <Search className="size-3.5 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Agent 列表</span>
+              <strong className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {visibleAgents.length} / {publishedAgents.length}
+              </strong>
+            </div>
+            <em className="text-[11px] not-italic text-muted-foreground">先确认边界，再验证或接入</em>
+          </div>
+
+          {visibleAgents.map(({ agent, release }) => (
+            <ServiceIndexItem
+              key={agent.id}
+              agent={agent}
+              release={release}
+              active={selectedAgent?.id === agent.id}
+              variant="ledger"
+              onSelect={() => setSelectedId(agent.id)}
+            />
+          ))}
+
+          {!agents.isLoading && publishedAgents.length > 0 && visibleAgents.length === 0 && (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-4 py-8 text-center">
+              <CheckCircle2 className="size-5 text-muted-foreground" />
+              <strong className="text-sm text-foreground">没有匹配的已上线 Agent</strong>
+              <span className="text-xs text-muted-foreground">当前筛选条件下没有可用 Agent。</span>
+            </div>
+          )}
+
+          {!agents.isLoading && !publishedAgents.length && (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-4 py-8 text-center">
+              <CheckCircle2 className="size-5 text-muted-foreground" />
+              <strong className="text-sm text-foreground">暂无已上线 Agent</strong>
+              <span className="text-xs text-muted-foreground">
+                {canCreateAgent ? '在 Agent Studio 完成上线后会出现在这里。' : '请联系维护人完成 Agent 上线。'}
               </span>
-              {selectedProfile.displayTags.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+              {canCreateAgent && (
+                <Button size="sm" onClick={goStudio}>进入 Agent Studio</Button>
+              )}
             </div>
-            <div className="agent-profile-actions">
-              <Button type="primary" icon={<FileCheck2 size={15} />} disabled={!selectedProfile.integrationReady} onClick={() => copyText(selectedContractModel)}>
+          )}
+        </section>
+
+        {/* Right: Agent detail panel or empty state */}
+        {selectedAgent && selectedProfile ? (
+          <aside
+            className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto rounded-xl border border-border bg-card p-5"
+            aria-label="Agent 档案"
+          >
+            {/* Profile head */}
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">
+                {selectedProfile.domain} · {selectedProfile.department}
+              </span>
+              <h2 className="text-base font-semibold text-foreground">{selectedAgent.name}</h2>
+              <p className="text-sm text-muted-foreground">{selectedProfile.scenario}</p>
+            </div>
+
+            {/* Status row */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <StatusBadge status={selectedAgent.status} />
+              {selectedProfile.displayTags.slice(0, 4).map((item) => (
+                <Badge key={item} variant="secondary">{item}</Badge>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={!selectedProfile.integrationReady}
+                onClick={() => copyText(selectedContractModel)}
+              >
+                <FileCheck2 className="size-4" />
                 {selectedProfile.integrationReady ? '复制 Agent 调用标识' : '接入信息待完善'}
               </Button>
-              <Button icon={<PlayCircle size={15} />} onClick={() => goExperience(selectedAgent.id)}>验证</Button>
+              <Button
+                variant="outline"
+                onClick={() => goExperience(selectedAgent.id)}
+              >
+                <PlayCircle className="size-4" />
+                验证
+              </Button>
             </div>
+
+            {/* Governance warning */}
             {!selectedProfile.integrationReady && (
-              <div className="agent-profile-warning">
-                <ShieldCheck size={14} />
-                <span>待补齐：{selectedProfile.catalogGaps.join('、') || selectedProfile.approvalStatus}</span>
+              <div className="flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2.5 text-sm text-warning">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  待补齐：{selectedProfile.catalogGaps.join('、') || selectedProfile.approvalStatus}
+                </span>
               </div>
             )}
-            <section className="agent-profile-section">
-              <div className="agent-profile-section-title">
-                <FileCheck2 size={15} />
+
+            {/* Release profile grid */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <FileCheck2 className="size-4 text-muted-foreground" />
                 <span>上线画像</span>
               </div>
-              <div className="agent-profile-grid">
-                <div><span>上线版本</span><strong>{selectedProfile.versionLabel}</strong></div>
-                <div><span>最近上线</span><strong>{latestRelease ? formatDate(latestRelease.created_at) : selectedProfile.releaseText}</strong></div>
-                <div><span>治理状态</span><strong>{selectedProfile.changeWindow}</strong></div>
-                <div><span>维护人</span><strong>{selectedProfile.serviceOwner}</strong></div>
-                <div><span>调用范围</span><strong>{selectedProfile.callerScope}</strong></div>
-                <div><span>接入策略</span><strong>{selectedProfile.integrationPolicy}</strong></div>
-                <div><span>目录完整度</span><strong>{selectedProfile.catalogCompleteness}%</strong></div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+                {[
+                  { label: '上线版本', value: selectedProfile.versionLabel },
+                  {
+                    label: '最近上线',
+                    value: latestRelease
+                      ? formatDate(latestRelease.created_at)
+                      : selectedProfile.releaseText,
+                  },
+                  { label: '治理状态', value: selectedProfile.changeWindow },
+                  { label: '维护人', value: selectedProfile.serviceOwner },
+                  { label: '调用范围', value: selectedProfile.callerScope },
+                  { label: '接入策略', value: selectedProfile.integrationPolicy },
+                  { label: '目录完整度', value: `${selectedProfile.catalogCompleteness}%` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="space-y-0.5">
+                    <span className="text-[11px] text-muted-foreground">{label}</span>
+                    <strong className="block text-xs font-medium text-foreground">{value}</strong>
+                  </div>
+                ))}
               </div>
             </section>
-            <section className="agent-profile-section">
-              <div className="agent-profile-section-title">
-                <ShieldCheck size={15} />
+
+            {/* Boundary section */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <ShieldCheck className="size-4 text-muted-foreground" />
                 <span>运行边界</span>
               </div>
-              <div className="agent-boundary-list">
-                <div><span>处理方式</span><strong>{selectedProfile.actionScope}</strong></div>
-                <div><span>数据范围</span><strong>{selectedProfile.dataScope}</strong></div>
-                <div><span>数据分级</span><strong>{selectedProfile.dataClassification}</strong></div>
-                <div><span>风险等级</span><strong>{selectedProfile.riskLevel}</strong></div>
-                <div><span>支持方式</span><strong>{selectedProfile.sla}</strong></div>
-                <div><span>审批状态</span><strong>{selectedProfile.approvalStatus}</strong></div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+                {[
+                  { label: '处理方式', value: selectedProfile.actionScope },
+                  { label: '数据范围', value: selectedProfile.dataScope },
+                  { label: '数据分级', value: selectedProfile.dataClassification },
+                  { label: '风险等级', value: selectedProfile.riskLevel },
+                  { label: '支持方式', value: selectedProfile.sla },
+                  { label: '审批状态', value: selectedProfile.approvalStatus },
+                ].map(({ label, value }) => (
+                  <div key={label} className="space-y-0.5">
+                    <span className="text-[11px] text-muted-foreground">{label}</span>
+                    <strong className="block text-xs font-medium text-foreground">{value}</strong>
+                  </div>
+                ))}
               </div>
             </section>
-            <section className="agent-profile-section">
-              <div className="agent-profile-section-title">
-                <BookOpenCheck size={15} />
+
+            {/* Trial tasks section */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <BookOpenCheck className="size-4 text-muted-foreground" />
                 <span>推荐验证任务</span>
-                <strong>{selectedProfile.trialCases.length || 0}</strong>
+                <Badge variant="muted">{selectedProfile.trialCases.length || 0}</Badge>
               </div>
               {selectedProfile.trialCases.length > 0 ? (
-                <div className="service-sample-strip">
+                <div className="flex flex-wrap gap-1.5">
                   {selectedProfile.trialCases.slice(0, 4).map((item) => (
-                    <button type="button" key={item} onClick={() => goExperience(selectedAgent.id, item)}>
+                    <button
+                      type="button"
+                      key={item}
+                      onClick={() => goExperience(selectedAgent.id, item)}
+                      className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
                       {item}
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="mini-empty compact">暂未维护推荐验证任务，可在体验台直接输入业务材料。</div>
+                <p className="text-xs text-muted-foreground">
+                  暂未维护推荐验证任务，可在体验台直接输入业务材料。
+                </p>
               )}
             </section>
-            <details className="service-integration-details">
-              <summary>API 接入信息</summary>
-              <div className="service-integration-grid">
-                <div><span>执行入口</span><strong>POST /v1/responses</strong></div>
-                <div><span>model 字段</span><strong>{selectedContractModel}</strong></div>
-                <div><span>快照指纹</span><strong>{shortHash(selectedProfile.releaseSpecHash)}</strong></div>
+
+            {/* API integration details (collapsible) */}
+            <details className="group rounded-lg border border-border">
+              <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors">
+                API 接入信息
+              </summary>
+              <div className="border-t border-border px-4 py-3 space-y-3">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  {[
+                    { label: '执行入口', value: 'POST /v1/responses' },
+                    { label: 'model 字段', value: selectedContractModel },
+                    { label: '快照指纹', value: shortHash(selectedProfile.releaseSpecHash) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="space-y-0.5">
+                      <span className="text-[11px] text-muted-foreground">{label}</span>
+                      <strong className="block truncate text-xs font-medium text-foreground font-mono">{value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedProfile.integrationReady}
+                    onClick={() => copyText(selectedContractModel)}
+                  >
+                    <Copy className="size-3.5" />
+                    {selectedProfile.integrationReady ? '复制 Agent 调用标识' : '接入信息待完善'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedProfile.integrationReady}
+                    onClick={() => copyText(selectedCurl)}
+                  >
+                    <Copy className="size-3.5" />
+                    复制 curl 示例
+                  </Button>
+                </div>
               </div>
-              <button type="button" disabled={!selectedProfile.integrationReady} onClick={() => copyText(selectedContractModel)}>
-                <Copy size={13} />
-                {selectedProfile.integrationReady ? '复制 Agent 调用标识' : '接入信息待完善'}
-              </button>
-              <button type="button" disabled={!selectedProfile.integrationReady} onClick={() => copyText(selectedCurl)}>
-                <Copy size={13} />
-                复制 curl 示例
-              </button>
             </details>
           </aside>
         ) : (
-          <section className="service-empty-pane">
-            <div className="service-workspace-empty large">
-              <CheckCircle2 size={20} />
-              <strong>暂无已上线 Agent</strong>
-              <span>{canCreateAgent ? 'Agent 上线后可进入体验台。' : '请联系维护人完成 Agent 上线。'}</span>
-              {canCreateAgent && <Button type="primary" onClick={goStudio}>进入 Agent Studio</Button>}
+          <section className="flex flex-1 items-center justify-center rounded-xl border border-border bg-card">
+            <div className="flex flex-col items-center gap-3 p-8 text-center">
+              <CheckCircle2 className="size-6 text-muted-foreground" />
+              <strong className="text-sm font-semibold text-foreground">暂无已上线 Agent</strong>
+              <span className="text-xs text-muted-foreground">
+                {canCreateAgent ? 'Agent 上线后可进入体验台。' : '请联系维护人完成 Agent 上线。'}
+              </span>
+              {canCreateAgent && (
+                <Button onClick={goStudio}>进入 Agent Studio</Button>
+              )}
             </div>
           </section>
         )}
-        </div>
-      </section>
+      </div>
     </WorkspacePage>
   );
 }

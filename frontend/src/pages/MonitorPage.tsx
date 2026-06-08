@@ -1,8 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Button, InputNumber, Popconfirm, Progress, Space, Switch, Tag } from 'antd';
 import { Activity, AlertTriangle, CheckCircle2, Database, HardDrive, RefreshCw, RotateCcw, Scissors, ShieldCheck } from 'lucide-react';
 import { PageSurface, StatusSummary, WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Confirm } from '@/components/ui/confirm';
+import { NumberInput } from '@/components/ui/number-input';
+import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { toast } from '@/lib/toast';
+import { formatBytes, formatNumber } from '@/lib/format';
 import { api } from '../services/api';
 import { productTerms, runtimeActorLabel, visibleRuntimeText } from '../services/productLanguage';
 import { workspaceApi } from '../services/workspaceApi';
@@ -20,35 +28,12 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let next = value / 1024;
-  let unit = units[0];
-  for (let index = 1; index < units.length && next >= 1024; index += 1) {
-    next /= 1024;
-    unit = units[index];
-  }
-  return `${next >= 10 ? next.toFixed(1) : next.toFixed(2)} ${unit}`;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('zh-CN').format(value || 0);
-}
-
-function runStatusTag(status: string) {
-  const color = status === 'completed' ? 'success' : status === 'failed' ? 'error' : status === 'running' ? 'processing' : 'default';
-  const label = status === 'completed' ? '成功' : status === 'failed' ? '失败' : status === 'running' ? '运行中' : status || '-';
-  return <Tag color={color}>{label}</Tag>;
-}
-
 function runtimeScopeLabel(item: LLMUsageBreakdownItem | LLMHealthBreakdownItem) {
   return runtimeActorLabel(item.runtime_scope, item.subagent_name);
 }
 
 export default function MonitorPage() {
   const queryClient = useQueryClient();
-  const { message } = App.useApp();
   const [retentionForm, setRetentionForm] = useState<RunRetentionRequest>({});
 
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 10000 });
@@ -125,7 +110,7 @@ export default function MonitorPage() {
     mutationFn: () => api.previewRunRetention(effectiveRetentionForm),
     onSuccess: (result) => {
       queryClient.setQueryData(['run-retention'], result);
-      message.success(`已完成预览：${result.eligible_runs} 条运行可清理`);
+      toast.success(`已完成预览：${result.eligible_runs} 条运行可清理`);
     },
   });
   const applyRetention = useMutation({
@@ -133,35 +118,44 @@ export default function MonitorPage() {
     onSuccess: (result) => {
       queryClient.setQueryData(['run-retention'], result);
       refreshOps();
-      message.success(`已清理 ${result.deleted_runs} 条运行证据`);
+      toast.success(`已清理 ${result.deleted_runs} 条运行证据`);
     },
   });
 
+  // Derive progress indicator color based on usage
+  const quotaIndicatorClass = quotaPercent >= 90
+    ? 'bg-destructive'
+    : quotaPercent >= 75
+      ? 'bg-warning'
+      : 'bg-success';
+
   return (
     <WorkspacePage
-      className="monitor-page"
       icon={<Activity size={14} />}
       eyebrow="治理"
       title="可观测性"
       description="查看 Model Provider 可用性、运行证据异常、容量和清理策略。"
       actions={
-        canViewReadiness && readiness.data && (
-          <Tag color={readiness.data.status === 'ready' ? 'success' : readiness.data.status === 'degraded' ? 'warning' : 'error'}>
+        canViewReadiness && readiness.data ? (
+          <Badge variant={readiness.data.status === 'ready' ? 'success' : readiness.data.status === 'degraded' ? 'warning' : 'destructive'}>
             {readiness.data.environment}
-          </Tag>
-        )
+          </Badge>
+        ) : undefined
       }
     >
-      <section className="surface page-surface operations-workspace-summary">
-        <div className="surface-header">
-          <div>
-            <h2>Operations Read Model</h2>
-            <p>{workspace.data?.next_action || '正在读取后端聚合的运行态势。'}</p>
-          </div>
+      {/* Operations workspace summary */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground">Operations Read Model</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{workspace.data?.next_action || '正在读取后端聚合的运行态势。'}</p>
         </div>
-        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
-        <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有运维未通过项。" />
-      </section>
+        <div className="p-5 flex flex-col gap-4">
+          <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+          <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有运维未通过项。" />
+        </div>
+      </div>
+
+      {/* Status Summary */}
       <StatusSummary
         ariaLabel="平台运行保障台"
         badge={readinessLabel}
@@ -169,18 +163,21 @@ export default function MonitorPage() {
         title={commandTitle}
         description="运行异常、模型可用性、上传配额和状态存储。"
         actions={(
-          <>
-            <Button icon={<RefreshCw size={15} />} onClick={refreshOps}>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={refreshOps}>
+              <RefreshCw size={15} />
               刷新状态
             </Button>
             <Button
-              icon={<RotateCcw size={15} />}
-              loading={previewRetention.isPending || runRetention.isFetching}
+              variant="outline"
+              size="sm"
+              disabled={previewRetention.isPending || runRetention.isFetching}
               onClick={() => previewRetention.mutate()}
             >
+              <RotateCcw size={15} />
               预览清理
             </Button>
-          </>
+          </div>
         )}
         items={[
           {
@@ -220,247 +217,357 @@ export default function MonitorPage() {
           },
         ]}
       />
-      <section className="ops-workbench">
+
+      {/* Ops workbench */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* LLM Usage Breakdown */}
         <PageSurface
-          className="llm-usage-surface"
           title="模型调用分布"
           description={`按主流程、${productTerms.workRole}、模型和通道来源聚合调用量与 Token，帮助判断通道质量和资源消耗。`}
           actions={
-            llmUsageBreakdown.data && (
-              <Tag color="processing">
+            llmUsageBreakdown.data ? (
+              <Badge variant="info">
                 {formatNumber(llmUsageBreakdown.data.total_llm_calls)} 次调用
-              </Tag>
-            )
+              </Badge>
+            ) : undefined
           }
         >
-          <div className="llm-usage-layout">
-            <div className="retention-metrics">
-              <div><strong>{formatNumber(llmUsageBreakdown.data?.total_llm_calls || 0)}</strong><span>总调用</span></div>
-              <div><strong>{formatNumber(llmUsageBreakdown.data?.total_tokens || 0)}</strong><span>总 Token</span></div>
-              <div><strong>{formatNumber(llmUsageBreakdown.data?.input_tokens || 0)}</strong><span>输入 Token</span></div>
-              <div><strong>{formatNumber(llmUsageBreakdown.data?.output_tokens || 0)}</strong><span>输出 Token</span></div>
+          <div className="flex flex-col gap-4">
+            {/* Summary metrics */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmUsageBreakdown.data?.total_llm_calls || 0)}</strong>
+                <span className="text-xs text-muted-foreground">总调用</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmUsageBreakdown.data?.total_tokens || 0)}</strong>
+                <span className="text-xs text-muted-foreground">总 Token</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmUsageBreakdown.data?.input_tokens || 0)}</strong>
+                <span className="text-xs text-muted-foreground">输入 Token</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmUsageBreakdown.data?.output_tokens || 0)}</strong>
+                <span className="text-xs text-muted-foreground">输出 Token</span>
+              </div>
             </div>
-            <div className="llm-usage-table">
+            {/* Per-item breakdown */}
+            <div className="flex flex-col gap-2">
               {(llmUsageBreakdown.data?.items || []).slice(0, 8).map((item) => (
-                <div key={`${item.runtime_scope}-${item.subagent_name}-${item.provider_type}-${item.model}-${item.llm_config_id}`}>
-                  <div>
-                    <strong>{runtimeScopeLabel(item)}</strong>
-                    <span>{item.provider_type || '-'} · {item.model || '-'}</span>
+                <div
+                  key={`${item.runtime_scope}-${item.subagent_name}-${item.provider_type}-${item.model}-${item.llm_config_id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-medium text-foreground">{runtimeScopeLabel(item)}</strong>
+                    <span className="text-xs text-muted-foreground">{item.provider_type || '-'} · {item.model || '-'}</span>
                   </div>
-                  <div><strong>{formatNumber(item.total_tokens)}</strong><span>Token</span></div>
-                  <div><strong>{formatNumber(item.llm_calls)}</strong><span>调用</span></div>
-                  <div><strong>{formatNumber(item.input_tokens)}</strong><span>输入</span></div>
-                  <div><strong>{formatNumber(item.output_tokens)}</strong><span>输出</span></div>
+                  <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                    <span><strong className="text-foreground">{formatNumber(item.total_tokens)}</strong> Token</span>
+                    <span><strong className="text-foreground">{formatNumber(item.llm_calls)}</strong> 调用</span>
+                    <span><strong className="text-foreground">{formatNumber(item.input_tokens)}</strong> 输入</span>
+                    <span><strong className="text-foreground">{formatNumber(item.output_tokens)}</strong> 输出</span>
+                  </div>
                 </div>
               ))}
               {!llmUsageBreakdown.isLoading && !(llmUsageBreakdown.data?.items || []).length && (
-                <div className="mini-empty compact">还没有模型调用数据。</div>
+                <p className="text-sm text-muted-foreground py-2">还没有模型调用数据。</p>
               )}
             </div>
           </div>
         </PageSurface>
+
+        {/* LLM Health Breakdown */}
         <PageSurface
-          className="llm-health-surface"
           title="模型健康"
           description={`按主流程、${productTerms.workRole}、通道来源和模型聚合成功率、失败调用、平均耗时和首响应延迟。`}
           actions={
-            llmHealthBreakdown.data && (
-              <Tag color={llmHealthBreakdown.data.failed_llm_calls > 0 ? 'error' : 'success'}>
+            llmHealthBreakdown.data ? (
+              <Badge variant={llmHealthBreakdown.data.failed_llm_calls > 0 ? 'destructive' : 'success'}>
                 {llmHealthBreakdown.data.success_rate}% 成功率
-              </Tag>
-            )
+              </Badge>
+            ) : undefined
           }
         >
-          <div className="llm-usage-layout">
-            <div className="retention-metrics">
-              <div><strong>{formatNumber(llmHealthBreakdown.data?.total_llm_calls || 0)}</strong><span>总调用</span></div>
-              <div><strong>{llmHealthBreakdown.data?.success_rate || 0}%</strong><span>成功率</span></div>
-              <div><strong>{formatNumber(llmHealthBreakdown.data?.failed_llm_calls || 0)}</strong><span>失败调用</span></div>
-              <div><strong>{formatNumber(llmHealthBreakdown.data?.avg_first_token_ms || 0)}ms</strong><span>首响应延迟</span></div>
+          <div className="flex flex-col gap-4">
+            {/* Summary metrics */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmHealthBreakdown.data?.total_llm_calls || 0)}</strong>
+                <span className="text-xs text-muted-foreground">总调用</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{llmHealthBreakdown.data?.success_rate || 0}%</strong>
+                <span className="text-xs text-muted-foreground">成功率</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmHealthBreakdown.data?.failed_llm_calls || 0)}</strong>
+                <span className="text-xs text-muted-foreground">失败调用</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{formatNumber(llmHealthBreakdown.data?.avg_first_token_ms || 0)}ms</strong>
+                <span className="text-xs text-muted-foreground">首响应延迟</span>
+              </div>
             </div>
-            <div className="llm-health-table">
+            {/* Per-item breakdown */}
+            <div className="flex flex-col gap-2">
               {(llmHealthBreakdown.data?.items || []).slice(0, 8).map((item) => (
-                <div key={`${item.runtime_scope}-${item.subagent_name}-${item.provider_type}-${item.model}-${item.llm_config_id}`}>
-                  <div>
-                    <strong>{runtimeScopeLabel(item)}</strong>
-                    <span>{item.provider_type || '-'} · {item.model || '-'}</span>
+                <div
+                  key={`${item.runtime_scope}-${item.subagent_name}-${item.provider_type}-${item.model}-${item.llm_config_id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-medium text-foreground">{runtimeScopeLabel(item)}</strong>
+                    <span className="text-xs text-muted-foreground">{item.provider_type || '-'} · {item.model || '-'}</span>
                   </div>
-                  <div><strong>{item.success_rate}%</strong><span>成功率</span></div>
-                  <div><strong>{formatNumber(item.failed_llm_calls)}</strong><span>失败</span></div>
-                  <div><strong>{formatNumber(item.avg_duration_ms)}ms</strong><span>平均耗时</span></div>
-                  <div><strong>{formatNumber(item.avg_first_token_ms)}ms</strong><span>首响应</span></div>
-                  <div className="llm-health-error">
-                    {item.last_error ? <Tag color="error">{item.last_error}</Tag> : <Tag color="success">无失败样本</Tag>}
+                  <div className="flex flex-wrap items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                    <span><strong className="text-foreground">{item.success_rate}%</strong> 成功率</span>
+                    <span><strong className="text-foreground">{formatNumber(item.failed_llm_calls)}</strong> 失败</span>
+                    <span><strong className="text-foreground">{formatNumber(item.avg_duration_ms)}ms</strong> 平均耗时</span>
+                    <span><strong className="text-foreground">{formatNumber(item.avg_first_token_ms)}ms</strong> 首响应</span>
+                    {item.last_error
+                      ? <Badge variant="destructive">{item.last_error}</Badge>
+                      : <Badge variant="success">无失败样本</Badge>
+                    }
                   </div>
                 </div>
               ))}
               {!llmHealthBreakdown.isLoading && !(llmHealthBreakdown.data?.items || []).length && (
-                <div className="mini-empty compact">还没有模型健康数据。</div>
+                <p className="text-sm text-muted-foreground py-2">还没有模型健康数据。</p>
               )}
             </div>
           </div>
         </PageSurface>
-        <PageSurface
-          className="retention-surface"
-          title="运行保留策略"
-          description="按租户清理过期运行证据，保留最新运行和测试结果。"
-          actions={
-            <Space wrap>
+      </div>
+
+      {/* Run Retention Policy */}
+      <PageSurface
+        title="运行保留策略"
+        description="按租户清理过期运行证据，保留最新运行和测试结果。"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={previewRetention.isPending || runRetention.isFetching}
+              onClick={() => previewRetention.mutate()}
+            >
+              <RotateCcw size={14} />
+              预览清理
+            </Button>
+            <Confirm
+              title="执行运行证据清理？"
+              description={`将清理 ${activeRetention?.eligible_runs || 0} 条符合策略的运行证据。`}
+              okText="执行清理"
+              cancelText="取消"
+              danger
+              disabled={!canApplyRetention || !activeRetention?.eligible_runs}
+              onConfirm={() => applyRetention.mutate()}
+            >
               <Button
-                icon={<RotateCcw size={14} />}
-                loading={previewRetention.isPending || runRetention.isFetching}
-                onClick={() => previewRetention.mutate()}
+                variant="destructive"
+                size="sm"
+                disabled={!canApplyRetention || !activeRetention?.eligible_runs || applyRetention.isPending}
+                title={canApplyRetention ? '执行清理' : '需管理员权限'}
               >
-                预览清理
+                <Scissors size={14} />
+                执行清理
               </Button>
-              <Popconfirm
-                title="执行运行证据清理？"
-                description={`将清理 ${activeRetention?.eligible_runs || 0} 条符合策略的运行证据。`}
-                okText="执行清理"
-                cancelText="取消"
-                disabled={!canApplyRetention || !activeRetention?.eligible_runs}
-                onConfirm={() => applyRetention.mutate()}
-              >
-                <Button
-                  danger
-                  type="primary"
-                  icon={<Scissors size={14} />}
-                  loading={applyRetention.isPending}
-                  disabled={!canApplyRetention || !activeRetention?.eligible_runs}
-                  title={canApplyRetention ? '执行清理' : '需管理员权限'}
+            </Confirm>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Policy panel */}
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">保留天数</label>
+                <NumberInput
+                  min={1}
+                  value={effectiveRetentionForm.retain_days}
+                  onChange={(value) => setRetentionForm((current) => ({ ...current, retain_days: Number(value || 1) }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">最低保留</label>
+                <NumberInput
+                  min={0}
+                  value={effectiveRetentionForm.retain_minimum}
+                  onChange={(value) => setRetentionForm((current) => ({ ...current, retain_minimum: Number(value || 0) }))}
+                />
+              </div>
+              <div className="flex items-center gap-3 sm:col-span-2">
+                <Switch
+                  checked={effectiveRetentionForm.include_running}
+                  onCheckedChange={(checked) => setRetentionForm((current) => ({ ...current, include_running: checked }))}
+                />
+                <span className="text-sm font-medium text-foreground">包含运行中</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex items-center gap-1.5 text-muted-foreground"><ShieldCheck size={14} />测试引用保护</span>
+                <strong className="text-foreground">{activeRetention?.protected_test_runs || 0}</strong>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex items-center gap-1.5 text-muted-foreground"><ShieldCheck size={14} />最新运行保护</span>
+                <strong className="text-foreground">{activeRetention?.protected_minimum_runs || 0}</strong>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex items-center gap-1.5 text-muted-foreground"><ShieldCheck size={14} />运行中保护</span>
+                <strong className="text-foreground">{activeRetention?.protected_running_runs || 0}</strong>
+              </div>
+            </div>
+          </div>
+          {/* Result panel */}
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{activeRetention?.total_runs || 0}</strong>
+                <span className="text-xs text-muted-foreground">总运行</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-lg font-semibold text-foreground">{activeRetention?.retained_runs || 0}</strong>
+                <span className="text-xs text-muted-foreground">将保留</span>
+              </div>
+              {retentionImpactMetrics.map((item) => (
+                <div key={item.label} className="flex flex-col gap-0.5">
+                  <strong className="text-lg font-semibold text-foreground">{formatNumber(item.value)}</strong>
+                  <span className="text-xs text-muted-foreground">{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">清理边界</span>
+              <strong className="text-foreground">{formatDate(activeRetention?.cutoff_at)}</strong>
+              <Badge variant={activeRetention?.dry_run === false ? 'success' : 'info'}>
+                {activeRetention?.dry_run === false ? '已执行' : '预览'}
+              </Badge>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {(activeRetention?.candidate_runs || []).slice(0, 8).map((candidate) => (
+                <div
+                  key={candidate.id}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs"
                 >
-                  执行清理
-                </Button>
-              </Popconfirm>
-            </Space>
-          }
-        >
-          <div className="retention-layout">
-            <div className="retention-policy-panel">
-              <div className="retention-field-grid">
-                <label>
-                  <span>保留天数</span>
-                  <InputNumber
-                    min={1}
-                    value={effectiveRetentionForm.retain_days}
-                    onChange={(value) => setRetentionForm((current) => ({ ...current, retain_days: Number(value || 1) }))}
-                  />
-                </label>
-                <label>
-                  <span>最低保留</span>
-                  <InputNumber
-                    min={0}
-                    value={effectiveRetentionForm.retain_minimum}
-                    onChange={(value) => setRetentionForm((current) => ({ ...current, retain_minimum: Number(value || 0) }))}
-                  />
-                </label>
-                <label className="switch-field">
-                  <span>包含运行中</span>
-                  <Switch
-                    checked={effectiveRetentionForm.include_running}
-                    onChange={(checked) => setRetentionForm((current) => ({ ...current, include_running: checked }))}
-                  />
-                </label>
-              </div>
-              <div className="retention-protection-list">
-                <div><ShieldCheck size={14} /><span>测试引用保护</span><strong>{activeRetention?.protected_test_runs || 0}</strong></div>
-                <div><ShieldCheck size={14} /><span>最新运行保护</span><strong>{activeRetention?.protected_minimum_runs || 0}</strong></div>
-                <div><ShieldCheck size={14} /><span>运行中保护</span><strong>{activeRetention?.protected_running_runs || 0}</strong></div>
-              </div>
-            </div>
-            <div className="retention-result-panel">
-              <div className="retention-metrics retention-impact-metrics">
-                <div><strong>{activeRetention?.total_runs || 0}</strong><span>总运行</span></div>
-                <div><strong>{activeRetention?.retained_runs || 0}</strong><span>将保留</span></div>
-                {retentionImpactMetrics.map((item) => (
-                  <div key={item.label}><strong>{formatNumber(item.value)}</strong><span>{item.label}</span></div>
-                ))}
-              </div>
-              <div className="retention-cutoff">
-                <span>清理边界</span>
-                <strong>{formatDate(activeRetention?.cutoff_at)}</strong>
-                <Tag color={activeRetention?.dry_run === false ? 'success' : 'processing'}>
-                  {activeRetention?.dry_run === false ? '已执行' : '预览'}
-                </Tag>
-              </div>
-              <div className="retention-candidates">
-                {(activeRetention?.candidate_runs || []).slice(0, 8).map((candidate) => (
-                  <div key={candidate.id}>
-                    <span>{candidate.id}</span>
-                    <strong>{candidate.agent_id}</strong>
-                    {runStatusTag(candidate.status)}
-                    <em>{formatDate(candidate.ended_at || candidate.started_at)}</em>
-                  </div>
-                ))}
-                {!runRetention.isLoading && !(activeRetention?.candidate_runs || []).length && (
-                  <div className="mini-empty compact">当前策略下没有可清理运行。</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </PageSurface>
-        <PageSurface
-          className="upload-quota-surface"
-          title="上传配额"
-          description={`统一约束会话附件和${productTerms.businessMaterial}，避免单租户无限占用存储。`}
-          actions={
-            uploadQuota.data && (
-              <Tag color={uploadQuota.data.usage_percent >= 90 ? 'error' : uploadQuota.data.usage_percent >= 75 ? 'warning' : 'success'}>
-                {uploadQuota.data.usage_percent}%
-              </Tag>
-            )
-          }
-        >
-          <div className="upload-quota-layout">
-            <Progress
-              percent={uploadQuota.data?.usage_percent || 0}
-              status={(uploadQuota.data?.usage_percent || 0) >= 90 ? 'exception' : 'normal'}
-              strokeColor={(uploadQuota.data?.usage_percent || 0) >= 75 ? '#b76512' : '#0f6f62'}
-            />
-            <div className="retention-metrics">
-              <div><strong>{formatBytes(uploadQuota.data?.used_bytes || 0)}</strong><span>已使用</span></div>
-              <div><strong>{formatBytes(uploadQuota.data?.remaining_bytes || 0)}</strong><span>剩余额度</span></div>
-              <div><strong>{formatBytes(uploadQuota.data?.attachment_bytes || 0)}</strong><span>会话附件</span></div>
-              <div><strong>{formatBytes(uploadQuota.data?.knowledge_bytes || 0)}</strong><span>{productTerms.businessMaterial}</span></div>
-            </div>
-          </div>
-        </PageSurface>
-        <PageSurface
-          className="runtime-state-surface"
-          title="状态存储容量"
-          description="只读检查运行检查点、状态存储的容量、位置和维护风险。"
-          actions={
-            runtimeState.data && (
-              <Tag color={runtimeState.data.status === 'healthy' ? 'success' : 'warning'}>
-                {runtimeState.data.backend}
-              </Tag>
-            )
-          }
-        >
-          <div className="runtime-state-layout">
-            <div className="retention-metrics">
-              <div><strong>{formatBytes(runtimeState.data?.runtime_state_bytes || 0)}</strong><span>运行态占用</span></div>
-              <div><strong>{formatBytes(runtimeState.data?.checkpoint_bytes || 0)}</strong><span>检查点文件</span></div>
-              <div><strong>{formatBytes(runtimeState.data?.store_bytes || 0)}</strong><span>状态存储文件</span></div>
-              <div><strong>{runtimeState.data?.store_items || 0}</strong><span>状态条目</span></div>
-            </div>
-            <div className="runtime-state-grid">
-              <div><span>运行态目录</span><strong>{runtimeState.data?.state_dir || '-'}</strong></div>
-              <div><span>检查点数据库</span><strong>{runtimeState.data?.checkpoint_exists ? runtimeState.data.checkpoint_db : '未创建'}</strong></div>
-              <div><span>状态数据库</span><strong>{runtimeState.data?.store_exists ? runtimeState.data.store_db : '未创建'}</strong></div>
-              <div><span>检查点记录</span><strong>{runtimeState.data?.checkpoints || 0}</strong></div>
-              <div><span>状态写入</span><strong>{runtimeState.data?.checkpoint_writes || 0}</strong></div>
-            </div>
-            <div className="runtime-state-notes">
-              {(runtimeState.data?.warnings || []).length ? (
-                runtimeState.data?.warnings.map((item) => <Tag color="warning" key={item}>{visibleRuntimeText(item)}</Tag>)
-              ) : (
-                <Tag color="success">当前运行态存储未触发维护告警</Tag>
+                  <span className="font-mono text-muted-foreground">{candidate.id}</span>
+                  <strong className="text-foreground">{candidate.agent_id}</strong>
+                  <StatusBadge status={candidate.status} />
+                  <em className="not-italic text-muted-foreground">{formatDate(candidate.ended_at || candidate.started_at)}</em>
+                </div>
+              ))}
+              {!runRetention.isLoading && !(activeRetention?.candidate_runs || []).length && (
+                <p className="text-sm text-muted-foreground py-1">当前策略下没有可清理运行。</p>
               )}
             </div>
           </div>
-        </PageSurface>
-      </section>
+        </div>
+      </PageSurface>
+
+      {/* Upload Quota */}
+      <PageSurface
+        title="上传配额"
+        description={`统一约束会话附件和${productTerms.businessMaterial}，避免单租户无限占用存储。`}
+        actions={
+          uploadQuota.data ? (
+            <Badge variant={uploadQuota.data.usage_percent >= 90 ? 'destructive' : uploadQuota.data.usage_percent >= 75 ? 'warning' : 'success'}>
+              {uploadQuota.data.usage_percent}%
+            </Badge>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Progress
+            value={uploadQuota.data?.usage_percent || 0}
+            indicatorClassName={quotaIndicatorClass}
+          />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(uploadQuota.data?.used_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">已使用</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(uploadQuota.data?.remaining_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">剩余额度</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(uploadQuota.data?.attachment_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">会话附件</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(uploadQuota.data?.knowledge_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">{productTerms.businessMaterial}</span>
+            </div>
+          </div>
+        </div>
+      </PageSurface>
+
+      {/* Runtime State */}
+      <PageSurface
+        title="状态存储容量"
+        description="只读检查运行检查点、状态存储的容量、位置和维护风险。"
+        actions={
+          runtimeState.data ? (
+            <Badge variant={runtimeState.data.status === 'healthy' ? 'success' : 'warning'}>
+              {runtimeState.data.backend}
+            </Badge>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(runtimeState.data?.runtime_state_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">运行态占用</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(runtimeState.data?.checkpoint_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">检查点文件</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{formatBytes(runtimeState.data?.store_bytes || 0)}</strong>
+              <span className="text-xs text-muted-foreground">状态存储文件</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <strong className="text-lg font-semibold text-foreground">{runtimeState.data?.store_items || 0}</strong>
+              <span className="text-xs text-muted-foreground">状态条目</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">运行态目录</span>
+              <strong className="font-mono text-xs text-foreground truncate max-w-[60%] text-right">{runtimeState.data?.state_dir || '-'}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">检查点数据库</span>
+              <strong className="font-mono text-xs text-foreground truncate max-w-[60%] text-right">{runtimeState.data?.checkpoint_exists ? runtimeState.data.checkpoint_db : '未创建'}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">状态数据库</span>
+              <strong className="font-mono text-xs text-foreground truncate max-w-[60%] text-right">{runtimeState.data?.store_exists ? runtimeState.data.store_db : '未创建'}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">检查点记录</span>
+              <strong className="text-foreground">{runtimeState.data?.checkpoints || 0}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">状态写入</span>
+              <strong className="text-foreground">{runtimeState.data?.checkpoint_writes || 0}</strong>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(runtimeState.data?.warnings || []).length ? (
+              runtimeState.data?.warnings.map((item) => (
+                <Badge variant="warning" key={item}>{visibleRuntimeText(item)}</Badge>
+              ))
+            ) : (
+              <Badge variant="success">当前运行态存储未触发维护告警</Badge>
+            )}
+          </div>
+        </div>
+      </PageSurface>
     </WorkspacePage>
   );
 }

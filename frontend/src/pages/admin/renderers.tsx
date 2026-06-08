@@ -1,32 +1,48 @@
-import { Space, Table, Tag } from 'antd';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { RuntimeResource, SkillChange } from '../../types/domain';
 
 export function renderRuntimeResources(resources: RuntimeResource[]) {
-  if (!resources.length) return <span className="muted">无</span>;
+  if (!resources.length) return <span className="text-sm text-muted-foreground">无</span>;
   return (
-    <Space wrap>
+    <div className="flex flex-wrap gap-1.5">
       {resources.map((item) => (
-        <Tag key={item.id} color={item.status === 'active' ? 'blue' : 'default'}>
+        <Badge key={item.id} variant={item.status === 'active' ? 'info' : 'muted'}>
           {item.name || item.id} · {item.kind}
-        </Tag>
+        </Badge>
       ))}
-    </Space>
+    </div>
   );
 }
 
 export function renderSkillChanges(changes: SkillChange[]) {
-  if (!changes.length) return <div className="mini-empty">没有字段差异</div>;
+  if (!changes.length) return <div className="py-3 text-sm text-muted-foreground">没有字段差异</div>;
   return (
-    <Table
-      size="small"
-      rowKey="field"
-      pagination={false}
-      dataSource={changes}
-      columns={[
-        { title: '字段', dataIndex: 'field', width: 150 },
-        { title: '当前值', dataIndex: 'before', render: (value) => <pre className="inline-diff">{value || '-'}</pre> },
-        { title: '目标值', dataIndex: 'after', render: (value) => <pre className="inline-diff">{value || '-'}</pre> },
-      ]}
-    />
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[150px]">字段</TableHead>
+          <TableHead>当前值</TableHead>
+          <TableHead>目标值</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {changes.map((change) => (
+          <TableRow key={change.field}>
+            <TableCell className="font-medium">{change.field}</TableCell>
+            <TableCell>
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
+                {change.before || '-'}
+              </pre>
+            </TableCell>
+            <TableCell>
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs text-foreground">
+                {change.after || '-'}
+              </pre>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

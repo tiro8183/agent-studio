@@ -1,4 +1,4 @@
-import { Tag } from 'antd';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import type {
   Agent,
   AgentPreflightCheck,
@@ -189,7 +189,17 @@ export function testCaseFreshness(item: { last_status: string; last_runtime_plan
   return { label: '配置已变更', color: 'warning' as const };
 }
 
-const testRunStatusMeta: Record<string, { label: string; color: 'success' | 'error' | 'processing' | 'default' }> = {
+type LegacyColor = 'success' | 'error' | 'processing' | 'default' | 'warning';
+
+const colorToVariant: Record<LegacyColor, NonNullable<BadgeProps['variant']>> = {
+  success: 'success',
+  error: 'destructive',
+  processing: 'info',
+  warning: 'warning',
+  default: 'muted',
+};
+
+const testRunStatusMeta: Record<string, { label: string; color: LegacyColor }> = {
   passed: { label: '通过', color: 'success' },
   failed: { label: '失败', color: 'error' },
   error: { label: '异常', color: 'error' },
@@ -198,10 +208,10 @@ const testRunStatusMeta: Record<string, { label: string; color: 'success' | 'err
 
 export function testRunStatusTag(status: string) {
   const meta = testRunStatusMeta[status] || { label: status || '-', color: 'default' as const };
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  return <Badge variant={colorToVariant[meta.color]}>{meta.label}</Badge>;
 }
 
-const regressionFreshnessMeta: Record<AgentRegressionCase['freshness'], { label: string; color: 'success' | 'warning' | 'default' | 'processing' }> = {
+const regressionFreshnessMeta: Record<AgentRegressionCase['freshness'], { label: string; color: LegacyColor }> = {
   current: { label: '当前配置', color: 'success' },
   stale: { label: '配置已变更', color: 'warning' },
   untested: { label: '未运行', color: 'default' },
@@ -214,7 +224,7 @@ export function regressionResultTag(status: AgentRegressionCase['result_status']
 
 export function regressionFreshnessTag(freshness: AgentRegressionCase['freshness']) {
   const meta = regressionFreshnessMeta[freshness];
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  return <Badge variant={colorToVariant[meta.color]}>{meta.label}</Badge>;
 }
 
 export function renderPreflightEvidence(check: AgentPreflightCheck) {
@@ -223,11 +233,11 @@ export function renderPreflightEvidence(check: AgentPreflightCheck) {
   ));
   if (!entries.length) return null;
   return (
-    <dl className="evidence-list">
+    <dl className="grid gap-1.5 text-xs">
       {entries.slice(0, 6).map(([key, value]) => (
-        <div key={key}>
-          <dt>{key}</dt>
-          <dd>
+        <div key={key} className="flex gap-2">
+          <dt className="shrink-0 font-medium text-muted-foreground">{key}</dt>
+          <dd className="min-w-0 break-words text-foreground">
             {typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
               ? String(value)
               : JSON.stringify(value)}

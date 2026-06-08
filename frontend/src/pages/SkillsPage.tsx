@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Tag } from 'antd';
 import { AlertTriangle, Brain, GitBranch, PackageCheck, ShieldCheck, Wrench } from 'lucide-react';
-import { WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
+import { WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage, StatusSummary } from '../components/ui';
+import { SectionCard } from '../components/layout';
+import { Badge } from '../components/ui/badge';
 import { api } from '../services/api';
 import { workspaceApi } from '../services/workspaceApi';
 import { summarizeSkillGovernance } from './assetGovernanceModel';
@@ -32,50 +33,63 @@ export default function SkillsPage() {
       title="Skills"
       description="治理可复用的 Skill 指令、allowed tools、版本记录和线上影响，确保进入 Agent Runtime 后行为一致。"
     >
-      <section className="surface page-surface asset-workspace-summary">
-        <div className="surface-header">
-          <div>
-            <h2>Skill 治理状态</h2>
-            <p>后端统一返回 Skill allowed tools、Runtime 影响范围与治理风险，前端不再自行复算运行真相。</p>
-          </div>
+      <SectionCard
+        title="Skill 治理状态"
+        description="后端统一返回 Skill allowed tools、Runtime 影响范围与治理风险，前端不再自行复算运行真相。"
+      >
+        <div className="space-y-4">
+          <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+          <WorkspaceIssueList
+            items={(workspace.data?.issues || []).filter((item) => item.key.startsWith('skill:'))}
+            emptyLabel="当前没有 Skill 未通过项。"
+          />
         </div>
-        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
-        <WorkspaceIssueList items={(workspace.data?.issues || []).filter((item) => item.key.startsWith('skill:'))} emptyLabel="当前没有 Skill 未通过项。" />
-      </section>
-      <section className="asset-ledger governance-ledger" aria-label="Skill governance state">
-        <span className={`asset-ledger-badge ${summary.tone}`}>{summary.label}</span>
-          <div className={summary.blockers ? 'danger' : summary.warnings ? 'warning' : 'ready'}>
-            {summary.blockers ? <AlertTriangle size={15} /> : <ShieldCheck size={15} />}
-            <span>上线检查</span>
-            <strong>{summary.blockers}</strong>
-            <em>{summary.warnings} 个风险提示</em>
-          </div>
-          <div className={summary.publishedServices ? 'warning' : 'ready'}>
-            <PackageCheck size={15} />
-            <span>线上影响</span>
-            <strong>{summary.publishedServices}</strong>
-            <em>已上线 Agent 引用</em>
-          </div>
-          <div>
-            <GitBranch size={15} />
-            <span>绑定范围</span>
-            <strong>{summary.boundServices}</strong>
-            <em>主流程与协作角色</em>
-          </div>
-          <div>
-            <Wrench size={15} />
-            <span>Skill allowed tools</span>
-            <strong>{summary.allowedActions}</strong>
-            <em>allowed tool refs</em>
-          </div>
-        <footer>
-          <Tag>执行规范</Tag>
-          <Tag>Skill allowed tools</Tag>
-          <Tag>运行预览</Tag>
-          <Tag>版本记录</Tag>
-          <Tag>影响范围</Tag>
-        </footer>
-      </section>
+      </SectionCard>
+
+      <StatusSummary
+        ariaLabel="Skill governance state"
+        badge={summary.label}
+        badgeTone={summary.tone}
+        title="Skill 运行真相"
+        items={[
+          {
+            icon: summary.blockers ? <AlertTriangle className="size-4" /> : <ShieldCheck className="size-4" />,
+            label: '上线检查',
+            value: summary.blockers,
+            detail: `${summary.warnings} 个风险提示`,
+            tone: summary.blockers ? 'blocked' : summary.warnings ? 'warning' : 'ready',
+          },
+          {
+            icon: <PackageCheck className="size-4" />,
+            label: '线上影响',
+            value: summary.publishedServices,
+            detail: '已上线 Agent 引用',
+            tone: summary.publishedServices ? 'warning' : 'ready',
+          },
+          {
+            icon: <GitBranch className="size-4" />,
+            label: '绑定范围',
+            value: summary.boundServices,
+            detail: '主流程与协作角色',
+          },
+          {
+            icon: <Wrench className="size-4" />,
+            label: 'Skill allowed tools',
+            value: summary.allowedActions,
+            detail: 'allowed tool refs',
+          },
+        ]}
+        footer={
+          <>
+            <Badge variant="muted">执行规范</Badge>
+            <Badge variant="muted">Skill allowed tools</Badge>
+            <Badge variant="muted">运行预览</Badge>
+            <Badge variant="muted">版本记录</Badge>
+            <Badge variant="muted">影响范围</Badge>
+          </>
+        }
+      />
+
       <SkillManagement toolOptions={toolOptions} />
     </WorkspacePage>
   );

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { App } from 'antd';
+import { toast } from '@/lib/toast';
 import { responseStreamErrorMessage, streamResponses } from '../services/api';
 import type { Agent } from '../types/domain';
 import { formatRuntimeError } from './agentServiceModel';
@@ -18,12 +18,10 @@ export interface ExperienceRunEvidence {
 
 interface UseAgentExperienceSessionParams {
   selectedAgent: Agent | null;
-  messageApi: ReturnType<typeof App.useApp>['message'];
 }
 
 export function useAgentExperienceSession({
   selectedAgent,
-  messageApi,
 }: UseAgentExperienceSessionParams) {
   const [input, setInput] = useState('');
   const [taskBrief, setTaskBrief] = useState('');
@@ -121,7 +119,7 @@ export function useAgentExperienceSession({
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['run-incidents'] });
     } catch (error) {
-      messageApi.error(error instanceof Error ? error.message : '运行失败');
+      toast.error(error instanceof Error ? error.message : '运行失败');
       setTurns((current) => {
         const next = [...current];
         const last = next[next.length - 1];
