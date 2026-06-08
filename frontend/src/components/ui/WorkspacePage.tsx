@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PageContainer, PageHeader } from '@/components/layout';
 
 interface WorkspacePageProps {
   icon?: ReactNode;
@@ -10,23 +11,22 @@ interface WorkspacePageProps {
   className?: string;
 }
 
-export function WorkspacePage({ icon, eyebrow, title, description, actions, children, className = '' }: WorkspacePageProps) {
+export function WorkspacePage({ eyebrow, title, description, actions, children, className = '' }: WorkspacePageProps) {
   return (
-    <div className={`page workspace-page ${className}`.trim()}>
-      <header className="page-header">
-        <div>
-          {eyebrow && (
-            <div className="eyebrow">
-              {icon}
-              {eyebrow}
-            </div>
-          )}
-          <h1>{title}</h1>
-          {description && <p>{description}</p>}
-        </div>
-        {actions}
-      </header>
+    <PageContainer className={className}>
+      <PageHeader
+        title={
+          <span className="flex flex-col gap-1">
+            {eyebrow ? (
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{eyebrow}</span>
+            ) : null}
+            <span>{title}</span>
+          </span>
+        }
+        description={description}
+        actions={actions}
+      />
       {children}
-    </div>
+    </PageContainer>
   );
 }

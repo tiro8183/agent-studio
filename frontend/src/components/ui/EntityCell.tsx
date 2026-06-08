@@ -8,11 +8,15 @@ interface EntityCellProps {
 
 export function EntityCell({ icon, title, subtitle }: EntityCellProps) {
   return (
-    <div className="entity-cell">
-      {icon && <div className="entity-icon">{icon}</div>}
-      <div>
-        <strong>{title}</strong>
-        {subtitle && <span>{subtitle}</span>}
+    <div className="flex items-center gap-2.5">
+      {icon ? (
+        <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
+          {icon}
+        </div>
+      ) : null}
+      <div className="min-w-0">
+        <strong className="block truncate text-sm font-medium text-foreground">{title}</strong>
+        {subtitle ? <span className="block truncate text-xs text-muted-foreground">{subtitle}</span> : null}
       </div>
     </div>
   );

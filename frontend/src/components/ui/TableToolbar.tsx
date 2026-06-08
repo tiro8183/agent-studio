@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface TableToolbarProps {
   title?: ReactNode;
@@ -10,12 +11,12 @@ interface TableToolbarProps {
 
 export function TableToolbar({ title, description, filters, actions, className = '' }: TableToolbarProps) {
   return (
-    <div className={`table-toolbar split ${className}`.trim()}>
-      <div className="toolbar-copy">
-        {title && <h2>{title}</h2>}
-        {description && <p>{description}</p>}
+    <div className={cn('flex flex-wrap items-end justify-between gap-3', className)}>
+      <div className="min-w-0 space-y-0.5">
+        {title ? <h2 className="text-sm font-semibold text-foreground">{title}</h2> : null}
+        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
       </div>
-      <div className="toolbar-controls">
+      <div className="flex flex-wrap items-center gap-2">
         {filters}
         {actions}
       </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SectionCard } from '@/components/layout';
 
 interface PageSurfaceProps {
   title?: ReactNode;
@@ -9,20 +10,9 @@ interface PageSurfaceProps {
 }
 
 export function PageSurface({ title, description, actions, children, className = '' }: PageSurfaceProps) {
-  const hasHeader = title || description || actions;
-
   return (
-    <section className={`surface page-surface ${className}`.trim()}>
-      {hasHeader && (
-        <div className="surface-header">
-          <div>
-            {title && <h2>{title}</h2>}
-            {description && <p>{description}</p>}
-          </div>
-          {actions && <div className="surface-actions">{actions}</div>}
-        </div>
-      )}
+    <SectionCard title={title} description={description} actions={actions} className={className}>
       {children}
-    </section>
+    </SectionCard>
   );
 }
