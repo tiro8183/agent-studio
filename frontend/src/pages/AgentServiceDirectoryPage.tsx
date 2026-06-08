@@ -177,12 +177,15 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
           </div>
 
           {/* Domain filter */}
-          <Select value={domainFilter ?? ''} onValueChange={(v) => setDomainFilter(v || undefined)}>
+          <Select
+            value={domainFilter ?? '__all__'}
+            onValueChange={(v) => setDomainFilter(v === '__all__' ? undefined : v)}
+          >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="业务域" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">全部业务域</SelectItem>
+              <SelectItem value="__all__">全部业务域</SelectItem>
               {directoryFacets.domains.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
@@ -190,12 +193,15 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
           </Select>
 
           {/* Department filter */}
-          <Select value={departmentFilter ?? ''} onValueChange={(v) => setDepartmentFilter(v || undefined)}>
+          <Select
+            value={departmentFilter ?? '__all__'}
+            onValueChange={(v) => setDepartmentFilter(v === '__all__' ? undefined : v)}
+          >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="归属" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">全部归属</SelectItem>
+              <SelectItem value="__all__">全部归属</SelectItem>
               {directoryFacets.departments.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
