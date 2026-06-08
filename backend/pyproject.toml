@@ -1,0 +1,27 @@
+[project]
+name = "agent-forge-backend"
+version = "0.1.0"
+description = "DeepAgents-first backend for Agent Forge"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic==1.17.2",
+  "cryptography==48.0.0",
+  "deepagents==0.6.3",
+  "fastapi==0.128.8",
+  "langchain==1.3.1",
+  "langchain-anthropic==1.4.3",
+  "langchain-google-genai==4.2.3",
+  "langchain-mcp-adapters==0.2.2",
+  "langchain-openai==1.2.2",
+  "langgraph-checkpoint-postgres==3.1.0",
+  "langgraph-checkpoint-sqlite==3.1.0",
+  "jsonschema==4.26.0",
+  "psycopg[binary]==3.3.2",
+  "pydantic-settings==2.11.0",
+  "python-multipart==0.0.20",
+  "sqlmodel==0.0.34",
+  "uvicorn[standard]==0.38.0",
+]
+
+[tool.uv]
+package = false

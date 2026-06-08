@@ -1,0 +1,29 @@
+services:
+  backend:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm
+    working_dir: /app/backend
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8020
+    ports:
+      - "8020:8020"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      AGENT_FORGE_ENV: development
+      AGENT_FORGE_DATABASE_URL: sqlite:////app/data/agent-forge.db
+      AGENT_FORGE_RUNTIME_STATE_BACKEND: sqlite
+      AGENT_FORGE_RUNTIME_STATE_DIR: /app/data/runtime/langgraph
+      AGENT_FORGE_SECRET_KEY: agent-forge-compose-development-secret
+      AGENT_FORGE_UPLOAD_DIR: /app/data/uploads
+      AGENT_FORGE_CORS_ORIGINS: '["http://localhost:5183","http://127.0.0.1:5183"]'
+
+  frontend:
+    image: node:22-bookworm
+    working_dir: /app/frontend
+    command: sh -c "npm install && VITE_API_TARGET=http://backend:8020 npm run dev -- --host 0.0.0.0 --port 5183"
+    ports:
+      - "5183:5183"
+    volumes:
+      - .:/app
+    depends_on:
+      - backend

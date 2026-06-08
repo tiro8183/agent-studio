@@ -1,0 +1,3 @@
+Alembic migrations for Agent Forge backend.
+
+Use `uv run alembic upgrade head` from the backend directory.
