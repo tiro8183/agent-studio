@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App as AntApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import App from './app/App';
+import { Toaster } from './components/ui/sonner';
+import './index.css';
 import './styles.css';
 
 const queryClient = new QueryClient();
@@ -64,6 +66,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <AntApp>
         <QueryClientProvider client={queryClient}>
           <App />
+          <Toaster />
         </QueryClientProvider>
       </AntApp>
     </ConfigProvider>
