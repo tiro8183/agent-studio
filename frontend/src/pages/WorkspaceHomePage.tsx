@@ -2,29 +2,41 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Tag } from 'antd';
 import {
-  CheckCircle2,
-  CircleAlert,
+  ArrowRight,
+  Boxes,
+  Braces,
+  ClipboardCheck,
   Compass,
-  FileWarning,
+  Copy,
+  DatabaseZap,
+  FileSearch,
   PenLine,
   PlayCircle,
-  RadioTower,
+  ShieldCheck,
+  Wrench,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { canAtLeast } from '../services/authz';
-import { agentLifecycleMeta } from '../services/agentLifecycle';
-import type { Agent, AgentRun } from '../types/domain';
+import type { AgentRun, AssetGovernanceItem, WorkspaceAgentSummary, WorkspaceMetric } from '../types/domain';
 import type { WorkspacePageContext } from './pageContext';
 import { navigateTo } from './agentServiceModel';
 
-const runStatusLabel: Record<AgentRun['status'], string> = {
-  completed: '成功',
-  failed: '失败',
-  running: '运行中',
-  cancelled: '已取消',
-  stale: '超时',
-  blocked: '已阻断',
+const runStatusLabel: Record<AgentRun['status'], { label: string; color: string }> = {
+  completed: { label: '成功', color: 'success' },
+  failed: { label: '失败', color: 'error' },
+  running: { label: '运行中', color: 'processing' },
+  cancelled: { label: '已取消', color: 'warning' },
+  stale: { label: '超时', color: 'error' },
+  blocked: { label: '已阻断', color: 'error' },
 };
+
+function metricValue(metrics: WorkspaceMetric[] | undefined, key: string) {
+  return metrics?.find((item) => item.key === key)?.value || '0';
+}
+
+function assetIssueCount(items: AssetGovernanceItem[] | undefined) {
+  return (items || []).filter((item) => item.blockers || item.warnings).length;
+}
 
 function formatDuration(value?: number | null) {
   if (!value) return '-';
@@ -33,236 +45,217 @@ function formatDuration(value?: number | null) {
   return `${Math.floor(value / 60000)} 分 ${Math.round((value % 60000) / 1000)} 秒`;
 }
 
-function shortId(value?: string | null) {
-  if (!value) return '-';
-  return value.length > 16 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+function agentState(agent: WorkspaceAgentSummary) {
+  if (agent.catalog_ready) return { label: '可接入', color: 'success' };
+  if (agent.blockers) return { label: '上线检查未通过', color: 'error' };
+  if (agent.config_pending_publish) return { label: '变更待发布', color: 'warning' };
+  if (agent.status === 'published') return { label: '已上线', color: 'success' };
+  if (agent.status === 'inactive') return { label: '已停用', color: 'default' };
+  return { label: '草稿', color: 'processing' };
 }
 
-function statusTone(status?: Agent['status']) {
-  if (status === 'published') return 'ready';
-  if (status === 'inactive') return 'muted';
-  return 'attention';
+function copyText(value: string) {
+  if (!value) return;
+  navigator.clipboard?.writeText(value).catch(() => {
+    // Clipboard availability depends on the browser shell; copying is optional.
+  });
 }
 
 export default function WorkspaceHomePage({ currentUser }: WorkspacePageContext) {
-  const agents = useQuery({ queryKey: ['agents'], queryFn: api.listAgents });
-  const runs = useQuery({ queryKey: ['runs', 'home'], queryFn: () => api.listRuns({ limit: 8 }) });
-  const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
-  const readiness = useQuery({ queryKey: ['platform-readiness'], queryFn: api.readiness });
-  const incidents = useQuery({
-    queryKey: ['run-incidents', 'home'],
-    queryFn: () => api.runIncidents({ windowMinutes: 1440, staleThresholdMinutes: 120, queueLimit: 4 }),
-  });
-  const role = currentUser?.membership.role;
-  const canEdit = canAtLeast(role, 'editor');
-  const agentList = agents.data || [];
-  const runList = runs.data || [];
+  const command = useQuery({ queryKey: ['workspace', 'command-center'], queryFn: api.workspaceCommandCenter });
+  const studio = useQuery({ queryKey: ['workspace', 'agent-studio', 'home'], queryFn: api.workspaceAgentStudio });
+  const assets = useQuery({ queryKey: ['workspace', 'asset-governance', 'home'], queryFn: api.workspaceAssetGovernance });
+  const runs = useQuery({ queryKey: ['workspace', 'run-evidence', 'home'], queryFn: () => api.workspaceRunEvidence({ limit: 4 }) });
+  const canEdit = canAtLeast(currentUser?.membership.role, 'editor');
 
-  const workspaceStats = useMemo(() => {
-    const published = agentList.filter((agent) => agent.status === 'published');
-    const unpublished = agentList.filter((agent) => agent.status === 'unpublished');
-    const pendingPublish = agentList.filter((agent) => agent.config_pending_publish);
-    const inactive = agentList.filter((agent) => agent.status === 'inactive');
-    return { published, unpublished, pendingPublish, inactive };
-  }, [agentList]);
+  const agents = studio.data?.agents || command.data?.priority_agents || [];
+  const publishedAgents = agents.filter((agent) => agent.status === 'published' && !agent.config_pending_publish);
+  const apiReadyAgents = publishedAgents.filter((agent) => agent.catalog_ready);
+  const blockedAgents = agents.filter((agent) => agent.blockers || agent.config_pending_publish || agent.status !== 'published');
+  const primaryAgent = apiReadyAgents[0] || publishedAgents[0] || agents[0];
+  const runsData = runs.data?.runs || [];
+  const assetIssues = assetIssueCount(assets.data?.providers) + assetIssueCount(assets.data?.tools) + assetIssueCount(assets.data?.skills);
+  const topAgents = useMemo(() => {
+    const selected = [...apiReadyAgents, ...blockedAgents.filter((agent) => !apiReadyAgents.some((item) => item.id === agent.id))];
+    return selected.slice(0, 4);
+  }, [apiReadyAgents, blockedAgents]);
 
-  const priorityAgents = useMemo(() => {
-    const score = (agent: Agent) => {
-      if (agent.config_pending_publish) return 0;
-      if (agent.status === 'unpublished') return 1;
-      if (agent.status === 'published') return 2;
-      return 3;
-    };
-    return [...agentList]
-      .sort((left, right) => score(left) - score(right) || new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime())
-      .slice(0, 5);
-  }, [agentList]);
-
-  const incidentItems = (incidents.data?.queues || []).flatMap((queue) => queue.items).slice(0, 4);
-  const readinessStatus = readiness.data?.status || 'blocked';
-  const evidenceTotal = stats.data?.runs ?? runList.length;
-  const pendingCount = workspaceStats.pendingPublish.length + workspaceStats.unpublished.length + incidentItems.length;
-  const productionHealth = readinessStatus === 'ready' && !incidentItems.length
-    ? '运行稳定'
-    : readinessStatus === 'blocked'
-      ? '基础配置待处理'
-      : '需要复核';
-  const nextAction = workspaceStats.pendingPublish.length
-    ? '处理配置变更'
-    : workspaceStats.unpublished.length
-      ? '推进未上线 Agent'
-      : incidentItems.length
-        ? '复核运行异常'
-        : '验证新业务任务';
-  const commandItems = [
+  const deliverySteps = [
     {
-      key: 'pending',
-      label: '待推进',
-      value: pendingCount,
-      detail: `${workspaceStats.pendingPublish.length} 配置变更 / ${workspaceStats.unpublished.length} 未上线`,
-      tone: pendingCount ? 'warning' : 'ready',
-      path: '/agents',
+      title: '设计 Agent 服务',
+      body: '在 Agent Studio 中定义服务边界、模型通道、Subagent、知识资料、Skills 和 Tools。',
+      icon: PenLine,
+      target: '/agents',
+      action: '进入 Agent Studio',
     },
     {
-      key: 'services',
-      label: '已上线',
-      value: workspaceStats.published.length,
-      detail: `${evidenceTotal} 条运行证据`,
-      tone: 'ready',
-      path: '/services',
+      title: '通过发布门禁',
+      body: 'Preflight、Runtime Manifest、回归用例和配置差异共同决定能否上线。',
+      icon: ShieldCheck,
+      target: '/quality',
+      action: '查看发布门禁',
     },
     {
-      key: 'incidents',
-      label: '异常',
-      value: incidentItems.length,
-      detail: '近 24 小时高优先级',
-      tone: incidentItems.length ? 'blocked' : 'ready',
-      path: '/runs',
+      title: '开放标准 API',
+      body: '上线后的 Agent 以 model=agent:<service_slug> 暴露给外部系统调用。',
+      icon: Braces,
+      target: '/services',
+      action: '查看服务目录',
     },
     {
-      key: 'inactive',
-      label: '停用',
-      value: workspaceStats.inactive.length,
-      detail: productionHealth,
-      tone: 'muted',
-      path: '/quality',
+      title: '沉淀运行证据',
+      body: '体验验证、外部调用、Tool 调用、LLM Trace 和错误复验进入同一证据链。',
+      icon: FileSearch,
+      target: '/runs',
+      action: '查看运行证据',
     },
   ] as const;
 
-  return (
-    <div className="page workspace-home-page">
-      <header className={`home-command-strip ${readinessStatus}`}>
-        <div className="home-command-title">
-          <div className="eyebrow"><RadioTower size={14} /> 工作区</div>
-          <h1>{currentUser?.organization.name || '企业空间'}</h1>
-          <p>{nextAction}。内部验证和外部调用都写入同一套运行证据。</p>
-        </div>
-        <div className="home-command-board" aria-label="工作区队列">
-          {commandItems.map((item) => (
-            <button
-              type="button"
-              key={item.key}
-              className={`home-command-item ${item.tone}`}
-              onClick={() => navigateTo(item.path)}
-            >
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <em>{item.detail}</em>
-            </button>
-          ))}
-        </div>
-        <div className="home-command-actions">
-          <Button icon={<Compass size={15} />} onClick={() => navigateTo('/services')}>Agent 广场</Button>
-          <Button icon={<PlayCircle size={15} />} onClick={() => navigateTo('/experience')}>体验台</Button>
-          <Button type="primary" icon={<PenLine size={15} />} disabled={!canEdit} onClick={() => navigateTo('/agents')}>
-            新建服务
-          </Button>
-        </div>
-      </header>
+  const foundationItems = [
+    { label: '模型通道', value: assets.data?.providers.length || 0, issue: assetIssueCount(assets.data?.providers), icon: DatabaseZap, target: '/providers' },
+    { label: 'Tools', value: assets.data?.tools.length || 0, issue: assetIssueCount(assets.data?.tools), icon: Wrench, target: '/tools' },
+    { label: 'Skills', value: assets.data?.skills.length || 0, issue: assetIssueCount(assets.data?.skills), icon: Boxes, target: '/skills' },
+  ] as const;
 
-      <section className="home-production-ledger" aria-label="生产态势">
-        <button type="button" className={pendingCount ? 'home-ledger-cell primary warning' : 'home-ledger-cell primary'} onClick={() => navigateTo('/agents')}>
-          <span>待推进事项</span>
-          <strong>{pendingCount}</strong>
-          <em>{workspaceStats.pendingPublish.length} 个配置变更待上线 · {workspaceStats.unpublished.length} 个未上线 · {incidentItems.length} 个异常</em>
-        </button>
-        <button type="button" className="home-ledger-cell ready" onClick={() => navigateTo('/services')}>
-          <span>已上线服务</span>
-          <strong>{workspaceStats.published.length}</strong>
-          <em>{productionHealth} · {evidenceTotal} 条运行记录</em>
-        </button>
-        <button type="button" className={incidentItems.length ? 'home-ledger-cell warning' : 'home-ledger-cell ready'} onClick={() => navigateTo('/runs')}>
-          <span>运行待复核</span>
-          <strong>{incidentItems.length}</strong>
-          <em>近 24 小时高优先级</em>
-        </button>
+  return (
+    <div className="page workspace-home-page forge-home-page">
+      <section className="forge-home-hero">
+        <div className="forge-home-hero-copy">
+          <div className="eyebrow"><Compass size={14} /> Agent Forge 首页</div>
+          <h1>把 Agent 做成可上线、可调用、可追责的业务服务。</h1>
+          <p>
+            Agent Forge 面向国内团队的 Agent 服务生产平台：从 Agent Studio 设计服务，到发布门禁冻结 Release，再通过 `POST /v1/responses`
+            给外部系统开放 API，并用 Run Evidence 保留完整证据链。
+          </p>
+          <div className="forge-home-hero-actions">
+            <Button type="primary" icon={<PenLine size={15} />} disabled={!canEdit} onClick={() => navigateTo('/agents')}>开始构建 Agent</Button>
+            <Button icon={<Compass size={15} />} onClick={() => navigateTo('/services')}>查看 Agent 服务目录</Button>
+            <Button icon={<PlayCircle size={15} />} onClick={() => navigateTo('/experience')}>体验验证</Button>
+          </div>
+        </div>
+
+        <aside className="forge-home-contract" aria-label="标准 API 合约">
+          <div className="forge-contract-topline">
+            <span>标准调用协议</span>
+            <Tag color={apiReadyAgents.length ? 'success' : 'warning'}>{apiReadyAgents.length ? '已有可接入 Agent' : '待补齐接入治理'}</Tag>
+          </div>
+          <strong>POST /v1/responses</strong>
+          <div className="forge-contract-code">
+            <span>model</span>
+            <code>{primaryAgent?.contract_model || 'agent:<service_slug>'}</code>
+            <button type="button" title="复制调用标识" disabled={!primaryAgent?.contract_model} onClick={() => copyText(primaryAgent?.contract_model || '')}>
+              <Copy size={14} />
+            </button>
+          </div>
+          <div className="forge-contract-metrics">
+            <div><span>Agent 总数</span><strong>{metricValue(command.data?.metrics, 'agents')}</strong></div>
+            <div><span>可接入</span><strong>{apiReadyAgents.length}</strong></div>
+            <div><span>运行证据</span><strong>{metricValue(command.data?.metrics, 'runs')}</strong></div>
+          </div>
+        </aside>
       </section>
 
-      <section className="home-workbench-grid">
-        <div className="home-work-queue">
-          <div className="home-section-title">
-            <div>
-              <strong>Agent 服务队列</strong>
-              <span>优先处理配置变更、未上线服务和最近运行异常。</span>
-            </div>
-            <Button size="small" icon={<PenLine size={14} />} onClick={() => navigateTo('/agents')}>进入 Studio</Button>
+      <section className="forge-home-delivery" aria-label="Agent 服务交付链路">
+        <div className="forge-section-heading">
+          <div>
+            <span>交付链路</span>
+            <h2>一条链路管理 Agent 的设计、上线、调用和复核</h2>
           </div>
-          <div className="home-service-list">
-            {priorityAgents.map((agent) => (
-              <button type="button" className="home-service-row" key={agent.id} onClick={() => navigateTo('/agents')}>
-                <div className={`home-service-state ${statusTone(agent.status)}`}>
-                  {agent.status === 'published' && !agent.config_pending_publish ? <CheckCircle2 size={15} /> : <CircleAlert size={15} />}
-                </div>
-                <div>
-                  <strong>{agent.name || '未命名 Agent 服务'}</strong>
-                  <span>{agent.description || '尚未填写业务场景'}</span>
-                </div>
-                <Tag color={agentLifecycleMeta[agent.status].color}>{agent.config_pending_publish ? '配置变更待上线' : agentLifecycleMeta[agent.status].label}</Tag>
+          <Button size="small" icon={<ArrowRight size={14} />} onClick={() => navigateTo('/agents')}>进入构建区</Button>
+        </div>
+        <div className="forge-delivery-grid">
+          {deliverySteps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <button type="button" className="forge-delivery-step" key={step.title} onClick={() => navigateTo(step.target)}>
+                <div className="forge-step-index">{index + 1}</div>
+                <Icon size={18} />
+                <strong>{step.title}</strong>
+                <span>{step.body}</span>
+                <em>{step.action}</em>
               </button>
-            ))}
-            {!priorityAgents.length && <div className="mini-empty">暂无待上线 Agent。新建 Agent 后，可在这里完成配置、验收和上线。</div>}
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="forge-home-focus-grid">
+        <div className="forge-service-panel">
+          <div className="forge-section-heading compact">
+            <div>
+              <span>当前服务</span>
+              <h2>优先把 Agent 变成可接入服务</h2>
+            </div>
+            <Button size="small" onClick={() => navigateTo('/services')}>服务目录</Button>
+          </div>
+          <div className="forge-service-list">
+            {topAgents.map((agent) => {
+              const state = agentState(agent);
+              return (
+                <button type="button" className="forge-service-row" key={agent.id} onClick={() => navigateTo(agent.catalog_ready ? '/services' : '/agents')}>
+                  <div>
+                    <strong>{agent.name || '未命名 Agent'}</strong>
+                    <span>{agent.catalog_ready ? agent.contract_model : agent.next_action || '补齐服务边界和接入治理'}</span>
+                  </div>
+                  <Tag color={state.color}>{state.label}</Tag>
+                </button>
+              );
+            })}
+            {!topAgents.length && <div className="mini-empty">暂无 Agent。先从 Agent Studio 创建第一个服务对象。</div>}
           </div>
         </div>
 
-        <section className="home-evidence-panel">
-          <div className="home-section-title">
+        <div className="forge-evidence-panel">
+          <div className="forge-section-heading compact">
             <div>
-              <strong>运行证据</strong>
-              <span>统一记录内部验证、外部调用、异常和复验。</span>
+              <span>运行闭环</span>
+              <h2>Run Evidence 是交付后的事实账本</h2>
             </div>
-            <Button size="small" onClick={() => navigateTo('/runs')}>查看全部</Button>
+            <Button size="small" onClick={() => navigateTo('/runs')}>运行证据</Button>
           </div>
-
-          <div className="home-risk-summary">
-            <div className={incidentItems.length ? 'home-risk-status warning' : 'home-risk-status ready'}>
-              {incidentItems.length ? <FileWarning size={16} /> : <CheckCircle2 size={16} />}
-              <div>
-                <strong>{incidentItems.length ? `${incidentItems.length} 个运行异常` : '风险队列清空'}</strong>
-                <span>{incidentItems.length ? '优先复核失败、超时和队列积压。' : '最近没有高优先级运行异常。'}</span>
-              </div>
-            </div>
-            <Button size="small" onClick={() => navigateTo(incidentItems.length ? '/runs' : '/quality')}>
-              {incidentItems.length ? '处理异常' : '发布门禁'}
-            </Button>
-          </div>
-
-          {incidentItems.length > 0 && (
-            <div className="home-incident-list">
-              {incidentItems.map((item) => (
-                <button type="button" className="home-incident-row" key={item.run_id} onClick={() => navigateTo('/runs')}>
-                  <FileWarning size={15} />
-                  <div>
-                    <strong>{item.agent_name}</strong>
-                    <span>{item.reason || item.error_preview || '运行异常'}</span>
-                  </div>
-                  <em>{shortId(item.run_id)}</em>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="home-run-timeline">
-            <div className="home-run-timeline-head">
-              <span>最近调用</span>
-              <em>{runList.length ? `${Math.min(runList.length, 5)} 条` : '暂无记录'}</em>
-            </div>
-            <div className="home-run-list">
-              {runList.slice(0, 5).map((run) => (
-                <button type="button" className="home-run-row" key={run.id} onClick={() => navigateTo('/runs')}>
+          <div className="forge-run-list">
+            {runsData.map((run) => {
+              const status = runStatusLabel[run.status] || { label: run.status, color: 'default' };
+              return (
+                <button type="button" className="forge-run-row" key={run.id} onClick={() => navigateTo('/runs')}>
                   <div>
                     <strong>{run.agent_name || '未命名 Agent'}</strong>
-                    <span>{run.input_preview || '无输入预览'}</span>
+                    <span>{run.input_preview || run.output_preview || run.error || '无运行摘要'}</span>
                   </div>
-                  <Tag color={run.status === 'completed' ? 'success' : run.status === 'running' ? 'processing' : 'error'}>
-                    {runStatusLabel[run.status] || run.status}
-                  </Tag>
+                  <Tag color={status.color}>{status.label}</Tag>
                   <em>{formatDuration(run.duration_ms)}</em>
                 </button>
-              ))}
-              {!runList.length && <div className="mini-empty">暂无运行记录。</div>}
-            </div>
+              );
+            })}
+            {!runsData.length && <div className="mini-empty">暂无运行证据。</div>}
           </div>
-        </section>
+        </div>
+      </section>
+
+      <section className="forge-home-foundation" aria-label="Runtime 资产底座">
+        <div className="forge-foundation-copy">
+          <span>Runtime 底座</span>
+          <h2>Agent 的运行能力来自模型通道、Tools、Skills 和 Runtime Manifest。</h2>
+          <p>前端展示后端聚合后的运行真相，不在页面里复算 Tool / Skill 可用性；preflight、manifest、execution 使用同一套 Runtime capability 语义。</p>
+        </div>
+        <div className="forge-foundation-grid">
+          {foundationItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button type="button" className={item.issue ? 'forge-foundation-card warning' : 'forge-foundation-card'} key={item.label} onClick={() => navigateTo(item.target)}>
+                <Icon size={17} />
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <em>{item.issue ? `${item.issue} 项待处理` : '状态正常'}</em>
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" className="forge-audit-link" onClick={() => navigateTo('/audit')}>
+          <ClipboardCheck size={16} />
+          <span>关键变更进入审计日志，访问令牌在访问控制中统一管理。</span>
+          <ArrowRight size={14} />
+        </button>
       </section>
     </div>
   );

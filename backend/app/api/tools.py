@@ -132,7 +132,7 @@ def delete_secret(
     usages = tool_secret_usage(secret_id, session, context.organization.id)
     if usages:
         tool_names = "、".join(sorted({item["tool_name"] or item["tool_id"] for item in usages})[:5])
-        raise HTTPException(status_code=409, detail=f"密钥仍被 {len(usages)} 个工具或上线版本引用: {tool_names}")
+        raise HTTPException(status_code=409, detail=f"密钥仍被 {len(usages)} 个 Tools 或上线版本引用: {tool_names}")
     session.delete(secret)
     session.commit()
     return {"status": "deleted"}
@@ -231,7 +231,7 @@ def create_tool(
     session: Session = Depends(get_session),
 ) -> ToolRead:
     if session.get(ToolDefinition, payload.id):
-        raise HTTPException(status_code=409, detail="工具 ID 已存在")
+        raise HTTPException(status_code=409, detail="Tool ID 已存在")
     try:
         tool_def = create_tool_definition(payload, org_id=context.organization.id)
     except ValueError as exc:
@@ -251,7 +251,7 @@ def update_tool(
 ) -> ToolRead:
     tool_def = get_tool_or_404(session, tool_id, context.organization.id)
     if tool_def.implementation == "builtin":
-        raise HTTPException(status_code=400, detail="内置工具不可编辑")
+        raise HTTPException(status_code=400, detail="内置 Tool 不可编辑")
     updates = payload.model_dump(exclude_unset=True)
     try:
         tool_def = update_tool_definition(tool_def, updates)
@@ -271,7 +271,7 @@ def delete_tool(
 ) -> dict[str, str]:
     tool_def = get_tool_or_404(session, tool_id, context.organization.id)
     if tool_def.implementation == "builtin":
-        raise HTTPException(status_code=400, detail="内置工具不可删除")
+        raise HTTPException(status_code=400, detail="内置 Tool 不可删除")
     usage = tool_deletion_usage(tool_id, session, context.organization.id)
     if usage.total:
         raise HTTPException(status_code=409, detail=tool_deletion_usage_detail(usage))
@@ -297,7 +297,7 @@ async def invoke(
             actor_user_id=context.user.id,
         )
     except KeyError:
-        raise HTTPException(status_code=404, detail="工具不存在") from None
+        raise HTTPException(status_code=404, detail="Tool 不存在") from None
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except Exception as exc:

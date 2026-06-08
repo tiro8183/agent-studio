@@ -15,26 +15,26 @@ export const agentStatusMeta: Record<Agent['status'], { label: string; color: st
 };
 
 export const deepAgentBuiltinTools = [
-  { value: 'execute', label: '受控执行工具' },
-  { value: 'task', label: '分工调度' },
-  { value: 'write_todos', label: '任务规划' },
-  { value: 'ls', label: '资料目录读取' },
-  { value: 'read_file', label: '业务资料读取' },
-  { value: 'write_file', label: '业务资料写入' },
-  { value: 'edit_file', label: '业务资料修订' },
-  { value: 'glob', label: '资料范围匹配' },
-  { value: 'grep', label: '资料内容检索' },
+  { value: 'execute', label: 'execute · 受控执行 Tool' },
+  { value: 'task', label: 'task · Subagent 调度' },
+  { value: 'write_todos', label: 'write_todos · 任务规划' },
+  { value: 'ls', label: 'ls · 资料目录读取' },
+  { value: 'read_file', label: 'read_file · 业务资料读取' },
+  { value: 'write_file', label: 'write_file · 业务资料写入' },
+  { value: 'edit_file', label: 'edit_file · 业务资料修订' },
+  { value: 'glob', label: 'glob · 资料范围匹配' },
+  { value: 'grep', label: 'grep · 资料内容检索' },
 ];
 
 export const runtimeEventOptions = [
   { value: 'run_started', label: '运行开始' },
   { value: 'model_invoked', label: '模型调用' },
-  { value: 'tool_called', label: '工具调用' },
-  { value: 'tool_result', label: '工具结果' },
-  { value: 'subagent', label: '协作角色调用' },
-  { value: 'subagent_result', label: '协作角色结果' },
-  { value: 'skills', label: '能力包' },
-  { value: 'memory', label: '服务记忆' },
+  { value: 'tool_called', label: 'Tool call' },
+  { value: 'tool_result', label: 'Tool result' },
+  { value: 'subagent', label: 'Subagent call' },
+  { value: 'subagent_result', label: 'Subagent result' },
+  { value: 'skills', label: 'Skills' },
+  { value: 'memory', label: 'Memory' },
   { value: 'knowledge', label: '业务资料' },
   { value: 'knowledge_retrieval', label: '业务资料召回' },
   { value: 'llm_contracts', label: '模型运行合约' },
@@ -71,11 +71,11 @@ export const preflightGroupOrder: AgentPreflightCheck['group'][] = [
 ];
 
 export const studioSteps = [
-  { key: 'profile', group: '定义', label: '身份', title: '服务身份', target: 'studio-profile', desc: '名称、场景、模型通道' },
+  { key: 'profile', group: '定义', label: '身份', title: 'Agent Profile', target: 'studio-profile', desc: '名称、场景、模型通道' },
   { key: 'model', group: '合约', label: '模型', title: '模型合约', target: 'studio-model', desc: '通道、模型、调用参数' },
   { key: 'instructions', group: '定义', label: '标准', title: '执行标准', target: 'studio-instructions', desc: '职责、边界、输出要求' },
-  { key: 'capabilities', group: '运行', label: '编排', title: '运行编排', target: 'studio-capabilities', desc: '工具、能力包、服务记忆' },
-  { key: 'subagents', group: '运行', label: '协作', title: '协作角色', target: 'studio-subagents', desc: '岗位、任务、专业边界' },
+  { key: 'capabilities', group: '运行', label: '编排', title: 'Runtime Composition', target: 'studio-capabilities', desc: 'Tools、Skills、Memory' },
+  { key: 'subagents', group: '运行', label: '协作', title: 'Subagents', target: 'studio-subagents', desc: '岗位、任务、专业边界' },
   { key: 'knowledge', group: '资料', label: '资料', title: '业务资料', target: 'studio-knowledge', desc: '资料、引用依据' },
   { key: 'runtime', group: '策略', label: '策略', title: '运行策略', target: 'studio-runtime', desc: '访问范围、确认机制' },
   { key: 'evaluation', group: '上线', label: '验收', title: '上线验收', target: 'studio-evaluation', desc: '场景、标准、结果' },

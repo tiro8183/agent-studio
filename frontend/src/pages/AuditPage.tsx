@@ -65,9 +65,9 @@ export default function AuditPage() {
   return (
       <WorkspacePage
         icon={<ClipboardList size={14} />}
-        eyebrow="审计日志"
+        eyebrow="治理"
         title="审计日志"
-      description="登录、令牌和关键配置变更。"
+      description="登录、访问令牌、模型通道、Tools、Skills 和关键配置变更。"
     >
       <section className="audit-command-center" aria-label="审计窗口摘要">
         <div>

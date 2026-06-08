@@ -11,9 +11,10 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { EntityCell, StatusTag, WorkspacePage } from '../components/ui';
+import { EntityCell, StatusTag, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
 import { api } from '../services/api';
 import { canAtLeast } from '../services/authz';
+import { workspaceApi } from '../services/workspaceApi';
 import {
   isCustomProviderType,
   providerKind,
@@ -118,6 +119,7 @@ export default function ProvidersPage() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const llms = useQuery({ queryKey: ['llms'], queryFn: api.listLlms });
   const agents = useQuery({ queryKey: ['agents'], queryFn: api.listAgents });
+  const workspace = useQuery({ queryKey: ['workspace', 'asset-governance'], queryFn: workspaceApi.assetGovernance });
   const canManageProviders = canAtLeast(me.data?.membership.role, 'admin');
   const providers = llms.data || [];
   const agentsData = agents.data || [];
@@ -233,9 +235,9 @@ export default function ProvidersPage() {
     <WorkspacePage
       className="providers-page"
       icon={<Cable size={14} />}
-      eyebrow="模型接入"
-      title="模型接入"
-      description="管理 Agent 可绑定的模型连接。这里只维护接入协议、密钥、可用模型、连通检测和 Agent 影响，不维护价格。"
+      eyebrow="资产治理"
+      title="模型通道"
+      description="管理 Agent 可绑定的模型通道（Model Providers）。这里只维护接入协议、密钥、可用模型、连通检测和 Agent 影响，不维护价格。"
       actions={
         <Button
           type="primary"
@@ -248,6 +250,15 @@ export default function ProvidersPage() {
         </Button>
       }
     >
+      <section className="surface page-surface asset-workspace-summary">
+        <div className="surface-header">
+          <div>
+            <h2>模型通道治理状态</h2>
+            <p>由后端 workspace read model 聚合 Model Provider 可用性和已上线 Agent 影响。</p>
+          </div>
+        </div>
+        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+      </section>
       <section className="provider-command-board" aria-label="模型通道治理">
         <div className="provider-command-copy">
           <span>模型通道治理</span>

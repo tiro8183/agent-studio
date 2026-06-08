@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Drawer, Form, Input, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import { AlertTriangle, Copy, KeyRound, Plus, RefreshCw, Settings, ShieldCheck, Users } from 'lucide-react';
-import { EntityCell, PageSurface, StatusTag, TableToolbar, WorkspacePage } from '../components/ui';
+import { EntityCell, PageSurface, StatusTag, TableToolbar, WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
 import { api } from '../services/api';
 import { productTerms } from '../services/productLanguage';
+import { workspaceApi } from '../services/workspaceApi';
 import type { ApiToken, OrganizationApiToken, OrganizationMemberUser, OrganizationRole, PlatformReadinessCheck } from '../types/domain';
 
 const roleRank: Record<OrganizationRole, number> = {
@@ -79,6 +80,7 @@ export default function SystemAdminPage() {
   const queryClient = useQueryClient();
   const { message } = App.useApp();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const workspace = useQuery({ queryKey: ['workspace', 'operations', 'access-control'], queryFn: workspaceApi.operations, enabled: true });
   const currentRole = me.data?.membership.role || 'viewer';
   const canManageMembers = roleRank[currentRole] >= roleRank.admin;
   const tokens = useQuery({ queryKey: ['api-tokens'], queryFn: api.listApiTokens });
@@ -231,15 +233,25 @@ export default function SystemAdminPage() {
   return (
     <WorkspacePage
       icon={<Settings size={14} />}
-      eyebrow="组织与权限"
-      title="组织与权限"
-      description="管理成员、角色、访问令牌与平台就绪状态。"
+      eyebrow="治理"
+      title="访问控制"
+      description="管理成员、角色、访问令牌与外部系统调用 Agent 的权限边界。"
       actions={
         <Button icon={<RefreshCw size={15} />} onClick={refreshGovernance}>
           刷新
         </Button>
       }
     >
+      <section className="surface page-surface operations-workspace-summary">
+        <div className="surface-header">
+          <div>
+            <h2>访问与接入状态</h2>
+            <p>访问控制与运维视图共用后端 workspace read model，统一呈现成员、令牌和平台风险。</p>
+          </div>
+        </div>
+        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+        <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有平台级治理未通过项。" />
+      </section>
       <section className="admin-command-center" aria-label="组织治理总览">
         <div className="admin-command-copy">
           <span className={`admin-status-badge ${readinessTone}`}>

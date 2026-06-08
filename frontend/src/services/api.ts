@@ -1,4 +1,4 @@
-import type { Agent, AgentCompleteness, AgentPreflight, AgentRegressionCoverage, AgentReleaseSnapshot, AgentRun, AgentRuntimeManifestEnvelope, AgentTestCase, AgentTestRun, AgentTestSuiteRun, ApiToken, ApiTokenCreated, AuditLog, AuthSession, ChatMessage, Conversation, CurrentUser, KnowledgeDocument, KnowledgeDocumentDetail, KnowledgeRetrievalAudit, LLMUsageBreakdown, LLMHealthBreakdown, LLMCheckResult, LLMConfig, LLMInvocationLog, McpDiscoveryResult, McpImportResult, MonitorStats, OpenAPIImportResult, OrganizationApiToken, OrganizationMemberUser, OrganizationRole, PlatformReadiness, RegressionQualityOverview, RunEvidence, RunIncidentSummary, RunRecovery, RunRetentionRequest, RunRetentionResult, RunTraceEvent, RuntimeState, Skill, SkillExportPackage, SkillHealth, SkillImpact, SkillImportPreview, SkillRuntimePreview, SkillVersion, SkillVersionDiff, ToolDefinition, ToolHealth, ToolInvocationAudit, ToolInvokeResult, ToolSecret, UploadQuota, UploadResult } from '../types/domain';
+import type { Agent, AgentCompleteness, AgentPreflight, AgentRegressionCoverage, AgentReleaseSnapshot, AgentRun, AgentRuntimeManifestEnvelope, AgentStudioWorkspace, AgentTestCase, AgentTestRun, AgentTestSuiteRun, ApiToken, ApiTokenCreated, AssetGovernanceWorkspace, AuditLog, AuthSession, ChatMessage, CommandCenterWorkspace, Conversation, CurrentUser, KnowledgeDocument, KnowledgeDocumentDetail, KnowledgeRetrievalAudit, LLMUsageBreakdown, LLMHealthBreakdown, LLMCheckResult, LLMConfig, LLMInvocationLog, McpDiscoveryResult, McpImportResult, MonitorStats, OpenAPIImportResult, OperationsWorkspace, OrganizationApiToken, OrganizationMemberUser, OrganizationRole, PlatformReadiness, RegressionQualityOverview, RunEvidence, RunEvidenceWorkspace, RunIncidentSummary, RunRecovery, RunRetentionRequest, RunRetentionResult, RunTraceEvent, RuntimeState, Skill, SkillExportPackage, SkillHealth, SkillImpact, SkillImportPreview, SkillRuntimePreview, SkillVersion, SkillVersionDiff, ToolDefinition, ToolHealth, ToolInvocationAudit, ToolInvokeResult, ToolSecret, UploadQuota, UploadResult } from '../types/domain';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
 const TOKEN_KEY = 'agent_forge_access_token';
@@ -89,6 +89,16 @@ export const api = {
     search.set('limit', String(params?.limit || 80));
     return request<RegressionQualityOverview>(`/api/quality/regression-overview?${search.toString()}`);
   },
+
+  workspaceCommandCenter: () => request<CommandCenterWorkspace>('/api/workspace/command-center'),
+  workspaceAgentStudio: () => request<AgentStudioWorkspace>('/api/workspace/agent-studio'),
+  workspaceAssetGovernance: () => request<AssetGovernanceWorkspace>('/api/workspace/asset-governance'),
+  workspaceRunEvidence: (params?: { limit?: number }) => {
+    const search = new URLSearchParams();
+    search.set('limit', String(params?.limit || 30));
+    return request<RunEvidenceWorkspace>(`/api/workspace/run-evidence?${search.toString()}`);
+  },
+  workspaceOperations: () => request<OperationsWorkspace>('/api/workspace/operations'),
 
   listAgents: () => request<Agent[]>('/api/agents'),
   createAgent: (payload: Partial<Agent>) =>

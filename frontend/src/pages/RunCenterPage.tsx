@@ -10,10 +10,11 @@ import {
   Scissors,
   XCircle,
 } from 'lucide-react';
-import { StatusTag, WorkspacePage } from '../components/ui';
+import { StatusTag, WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
 import { api } from '../services/api';
 import { canAtLeast } from '../services/authz';
 import { productTerms, runtimeActorLabel, visibleRuntimeText } from '../services/productLanguage';
+import { workspaceApi } from '../services/workspaceApi';
 import type { AgentRun, RunIncidentItem, RunTraceEvent } from '../types/domain';
 import {
   auditSourceColor,
@@ -77,6 +78,7 @@ export default function RunCenterPage() {
   const [activeRunTab, setActiveRunTab] = useState<RunTabKey>('diagnosis');
 
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 10000 });
+  const workspace = useQuery({ queryKey: ['workspace', 'run-evidence'], queryFn: () => workspaceApi.runEvidence({ limit: 30 }), refetchInterval: 10000 });
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const agents = useQuery({ queryKey: ['agents'], queryFn: api.listAgents });
   const incidents = useQuery({
@@ -949,10 +951,20 @@ export default function RunCenterPage() {
       <WorkspacePage
       className="run-center-page"
       icon={<LayoutDashboard size={14} />}
-      eyebrow="运行证据"
+      eyebrow="运营"
       title="运行证据"
-      description={`面向上线 ${productTerms.agentService} 的执行复盘、证据链、外部${productTerms.action}、模型调用和复验闭环。`}
+      description={`面向已上线 ${productTerms.agentService} 的执行复盘、证据链、${productTerms.tool} 调用、模型调用和复验闭环。`}
     >
+      <section className="surface page-surface run-workspace-summary">
+        <div className="surface-header">
+          <div>
+            <h2>运行证据状态</h2>
+            <p>后端聚合运行指标和事故队列，前端保留 Trace、Tool、Knowledge、LLM 合约细节浏览。</p>
+          </div>
+        </div>
+        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+        <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有高优先级运行事件。" />
+      </section>
       <section className="run-ops-strip" aria-label="运行总览">
           <div className="run-ops-copy">
             <span className={`run-command-badge ${runCommandTone}`}>{runCommandLabel}</span>

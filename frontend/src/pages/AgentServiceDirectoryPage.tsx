@@ -102,6 +102,12 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
   const latestRelease = selectedEntry?.release;
   const selectedProfile = selectedEntry ? serviceProfile(selectedEntry) : null;
   const selectedContractModel = selectedAgent ? `agent:${selectedAgent.slug || selectedAgent.id}` : '';
+  const selectedCurl = selectedContractModel
+    ? `curl -N /v1/responses \\
+  -H "Authorization: Bearer <token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"${selectedContractModel}","input":"请在这里放入业务材料","stream":true}'`
+    : '';
   const canCreateAgent = canAtLeast(currentUser?.membership.role, 'editor');
 
   const copyText = async (value: string) => {
@@ -120,16 +126,16 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
     <WorkspacePage
       className="service-directory-page service-workspace-page"
       icon={<Compass size={14} />}
-      eyebrow="Agent 广场"
-      title="选择已上线 Agent 服务"
-      description="面向内部业务方和系统接入方的已上线 Agent 服务目录。"
+      eyebrow="运营"
+      title="Agent 服务目录"
+      description="面向业务使用方和外部系统接入方，只展示已上线 Agent，并给出验证入口与 API 调用信息。"
     >
       <section className="service-atlas">
         <div className="service-atlas-command">
           <div className="service-atlas-command-copy">
             <span>服务目录</span>
             <strong>{directoryStats.readyForIntegration} 个 Agent 可接入</strong>
-            <p>按业务域、团队、维护人和上线版本筛选；调用标识用于 POST /v1/responses 的 model 字段。</p>
+            <p>按业务域、团队、维护人和上线版本筛选；调用标识用于 `POST /v1/responses` 的 model 字段。</p>
           </div>
           <div className="service-directory-controls">
             <Input.Search
@@ -184,7 +190,7 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
             </button>
             <button type="button" onClick={goStudio} disabled={!canCreateAgent}>
               <ExternalLink size={14} />
-              <span>进入 Agent Studio</span>
+              <span>维护 Agent</span>
             </button>
           </div>
         </div>
@@ -299,15 +305,19 @@ export default function AgentServiceDirectoryPage({ currentUser }: WorkspacePage
               )}
             </section>
             <details className="service-integration-details">
-              <summary>接入信息</summary>
+              <summary>API 接入信息</summary>
               <div className="service-integration-grid">
-                <div><span>执行入口</span><strong>/v1/responses</strong></div>
+                <div><span>执行入口</span><strong>POST /v1/responses</strong></div>
                 <div><span>model 字段</span><strong>{selectedContractModel}</strong></div>
                 <div><span>快照指纹</span><strong>{shortHash(selectedProfile.releaseSpecHash)}</strong></div>
               </div>
               <button type="button" disabled={!selectedProfile.integrationReady} onClick={() => copyText(selectedContractModel)}>
                 <Copy size={13} />
                 {selectedProfile.integrationReady ? '复制 Agent 调用标识' : '接入信息待完善'}
+              </button>
+              <button type="button" disabled={!selectedProfile.integrationReady} onClick={() => copyText(selectedCurl)}>
+                <Copy size={13} />
+                复制 curl 示例
               </button>
             </details>
           </aside>

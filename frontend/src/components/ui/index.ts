@@ -6,6 +6,7 @@ export { PageSurface } from './PageSurface';
 export { StatusTag } from './StatusTag';
 export { TableToolbar } from './TableToolbar';
 export { WorkspacePage } from './WorkspacePage';
+export { RuntimeSummaryStrip, WorkspaceIssueList, WorkspaceMetricGrid, navigateTo as navigateWorkspace } from './WorkspaceViews';
 export { BrandLogo } from './BrandLogo';
 export { StatusSummary } from './StatusSummary';
 export type { StatusSummaryItem, StatusSummaryTone } from './StatusSummary';

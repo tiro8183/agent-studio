@@ -1,14 +1,18 @@
 export const productTerms = {
   agentService: 'Agent',
-  action: '工具',
-  systemAction: '工具',
-  capabilityPackage: '能力包',
-  workRole: '协作角色',
+  tool: 'Tool',
+  action: 'Tool',
+  systemAction: 'Tool',
+  skill: 'Skill',
+  capabilityPackage: 'Skill',
+  workRole: 'Subagent',
   businessMaterial: '知识资料',
   failedItem: '未通过项',
   riskNotice: '风险提示',
-  runtimeEngine: '运行时',
-  releaseVersion: '上线版本',
+  runtimeEngine: 'Runtime',
+  runtimeManifest: 'Runtime Manifest',
+  runtimeTools: 'Runtime Tools',
+  releaseVersion: 'Release',
 };
 
 export function runtimeActorLabel(scope?: string | null, name?: string | null) {
@@ -24,7 +28,7 @@ export function auditSubjectLabel(value: string) {
   if (normalized.includes('llm')) return '模型通道';
   if (normalized.includes('tool')) return productTerms.action;
   if (normalized.includes('agent')) return productTerms.agentService;
-  if (normalized.includes('skill')) return productTerms.capabilityPackage;
+  if (normalized.includes('skill')) return productTerms.skill;
   if (normalized.includes('member') || normalized.includes('user')) return '成员';
   return value;
 }
@@ -36,13 +40,15 @@ export function visibleRuntimeText(value?: string | null) {
     协作角色: productTerms.workRole,
     知识文件: productTerms.businessMaterial,
     知识召回: `${productTerms.businessMaterial}召回`,
-    工具审计: `${productTerms.action}运行证据`,
-    工具调用: `${productTerms.action}调用`,
-    工具失败: `${productTerms.action}失败`,
-    缺失工具: `缺失${productTerms.action}`,
-    未启用工具: `未启用${productTerms.action}`,
-    缺失能力: `缺失${productTerms.capabilityPackage}`,
-    未启用能力: `未启用${productTerms.capabilityPackage}`,
+    工具审计: `${productTerms.action} 调用证据`,
+    工具调用: `${productTerms.action} 调用`,
+    工具失败: `${productTerms.action} 调用失败`,
+    缺失工具: `缺失 ${productTerms.action}`,
+    未启用工具: `未启用 ${productTerms.action}`,
+    缺失能力: `缺失 ${productTerms.skill}`,
+    未启用能力: `未启用 ${productTerms.skill}`,
+    缺失能力包: `缺失 ${productTerms.skill}`,
+    未启用能力包: `未启用 ${productTerms.skill}`,
     阻断: '未通过',
     blocker: productTerms.failedItem,
     warning: productTerms.riskNotice,

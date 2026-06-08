@@ -12,6 +12,7 @@ data/*.db
 data/*.db.*
 data/*.db-*
 data/runtime/*
+data/preview-uploads/*
 data/verify-*
 data/*verify-*
 data/uploads/*

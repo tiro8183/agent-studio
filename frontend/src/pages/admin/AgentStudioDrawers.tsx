@@ -19,7 +19,7 @@ interface AgentPreflightDrawerProps {
 export function AgentPreflightDrawer({ open, preflight, onClose }: AgentPreflightDrawerProps) {
   return (
     <Drawer
-      title={preflight ? `检查结果 · ${preflight.agent_name}` : '检查结果'}
+      title={preflight ? `Preflight · ${preflight.agent_name}` : 'Preflight'}
       width={920}
       open={open}
       onClose={onClose}
@@ -133,7 +133,7 @@ export function RuntimeManifestDrawer({
   const mainModelContract = runtimeManifest?.model_contracts?.find((item) => item.scope === 'main');
   return (
     <Drawer
-      title={runtimeManifest ? `运行清单 · ${runtimeManifest.agent_name}` : '运行清单'}
+      title={runtimeManifest ? `Runtime Manifest · ${runtimeManifest.agent_name}` : 'Runtime Manifest'}
       width={860}
       open={open}
       onClose={onClose}
@@ -141,7 +141,7 @@ export function RuntimeManifestDrawer({
       {manifestEnvelope && runtimeManifest && (
         <div className="runtime-manifest">
           <section>
-            <h3>当前运行清单</h3>
+            <h3>Runtime Manifest</h3>
             <div className={isManifestAligned ? 'release-compare-note aligned' : 'release-compare-note pending'}>
               <span>{isManifestAligned ? '当前 Manifest 与上线版本一致' : hasReleaseManifest ? '当前 Manifest 与上线版本不一致' : '尚未生成上线版本'}</span>
               <strong>当前 {shortHash(currentManifestHash || manifestEnvelope.manifest_hash)} · 上线 {shortHash(latestReleaseManifestHash)}</strong>
@@ -169,7 +169,7 @@ export function RuntimeManifestDrawer({
               />
               <ManifestDiffPanel
                 title="当前 Manifest vs 上线版本"
-                description="用于判断这次配置是否改变线上工具、权限、后端或知识快照。"
+                description="用于判断这次配置是否改变线上 Tools、权限、后端或知识快照。"
                 emptyText={latestRelease ? '当前 Manifest 与最新上线版本无结构差异。' : '尚未生成上线版本，暂无 diff。'}
                 diffs={releaseDiff}
               />
@@ -197,7 +197,7 @@ export function RuntimeManifestDrawer({
                       <div><span>配置版本</span><strong>{shortHash(release.spec_hash)}</strong></div>
                       <div><span>模型通道</span><strong>{releaseManifest.model_contracts?.find((item) => item.scope === 'main')?.provider_type || '-'}</strong></div>
                       <div><span>模型</span><strong>{releaseManifest.model}</strong></div>
-                      <div><span>依赖项</span><strong>{resourceCount}</strong></div>
+                      <div><span>Runtime Resources</span><strong>{resourceCount}</strong></div>
                       <div><span>业务资料快照</span><strong>{release.knowledge_snapshot_count} 份</strong></div>
                     </div>
                   </article>
@@ -235,11 +235,11 @@ export function RuntimeManifestDrawer({
             <h3>主流程</h3>
             <div className="manifest-section-grid">
               <div>
-                <strong>工具</strong>
+                <strong>Runtime Tools</strong>
                 {renderRuntimeResources(runtimeManifest.main_tools)}
               </div>
               <div>
-                <strong>能力包</strong>
+                <strong>Skills</strong>
                 {renderRuntimeResources(runtimeManifest.main_skills)}
               </div>
               <div>
@@ -253,7 +253,7 @@ export function RuntimeManifestDrawer({
             </div>
           </section>
           <section>
-            <h3>协作角色</h3>
+            <h3>Subagents</h3>
             <div className="manifest-subagents">
               {runtimeManifest.subagents.map((subagent) => (
                 <article key={subagent.name}>
@@ -263,8 +263,8 @@ export function RuntimeManifestDrawer({
                   </div>
                   <Tag>{subagent.model}</Tag>
                   <div className="manifest-section-grid">
-                    <div><strong>工具</strong>{renderRuntimeResources(subagent.tools)}</div>
-                    <div><strong>能力包</strong>{renderRuntimeResources(subagent.skills)}</div>
+                    <div><strong>Tools</strong>{renderRuntimeResources(subagent.tools)}</div>
+                    <div><strong>Skills</strong>{renderRuntimeResources(subagent.skills)}</div>
                     <div><strong>输出</strong><span>{subagent.output.mode}</span></div>
                     <div><strong>访问边界</strong><span>{subagent.permissions.allow_write ? '可写' : '只读'}</span></div>
                   </div>
@@ -282,10 +282,10 @@ export function RuntimeManifestDrawer({
             <section>
               <h3>依赖未通过项</h3>
               <Space wrap>
-                {runtimeManifest.missing_tools.map((item) => <Tag color="error" key={`tool-${item}`}>缺失工具：{item}</Tag>)}
-                {runtimeManifest.missing_skills.map((item) => <Tag color="error" key={`skill-${item}`}>缺失能力包：{item}</Tag>)}
-                {runtimeManifest.inactive_tools.map((item) => <Tag color="warning" key={`inactive-tool-${item}`}>未生效工具：{item}</Tag>)}
-                {runtimeManifest.inactive_skills.map((item) => <Tag color="warning" key={`inactive-skill-${item}`}>未生效能力包：{item}</Tag>)}
+                {runtimeManifest.missing_tools.map((item) => <Tag color="error" key={`tool-${item}`}>缺失 Tool：{item}</Tag>)}
+                {runtimeManifest.missing_skills.map((item) => <Tag color="error" key={`skill-${item}`}>缺失 Skill：{item}</Tag>)}
+                {runtimeManifest.inactive_tools.map((item) => <Tag color="warning" key={`inactive-tool-${item}`}>未启用 Tool：{item}</Tag>)}
+                {runtimeManifest.inactive_skills.map((item) => <Tag color="warning" key={`inactive-skill-${item}`}>未启用 Skill：{item}</Tag>)}
               </Space>
             </section>
           )}
@@ -346,9 +346,9 @@ function diffRuntimeManifest(current: AgentRuntimeManifest, release: AgentRuntim
   pushScalarDiff(diffs, 'backend', '状态后端', current.backend_type, release.backend_type);
   pushScalarDiff(diffs, 'output', '输出模式', current.output.mode, release.output.mode);
   pushSetDiff(diffs, 'model_contracts', '模型调用快照', modelContractKeys(current.model_contracts), modelContractKeys(release.model_contracts));
-  pushSetDiff(diffs, 'main_tools', '主流程工具', ids(current.main_tools), ids(release.main_tools));
-  pushSetDiff(diffs, 'main_skills', '主流程能力包', ids(current.main_skills), ids(release.main_skills));
-  pushSetDiff(diffs, 'subagents', '协作角色', current.subagents.map((item) => item.name), release.subagents.map((item) => item.name));
+  pushSetDiff(diffs, 'main_tools', 'Runtime Tools', ids(current.main_tools), ids(release.main_tools));
+  pushSetDiff(diffs, 'main_skills', 'Skills', ids(current.main_skills), ids(release.main_skills));
+  pushSetDiff(diffs, 'subagents', 'Subagents', current.subagents.map((item) => item.name), release.subagents.map((item) => item.name));
   pushSetDiff(diffs, 'knowledge', '业务资料', current.knowledge.map((item) => `${item.file_name}:${item.content_hash.slice(0, 12)}`), release.knowledge.map((item) => `${item.file_name}:${item.content_hash.slice(0, 12)}`));
   return diffs.slice(0, 16);
 }

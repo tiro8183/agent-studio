@@ -217,7 +217,7 @@ function endpointLabel(value: ToolDefinition) {
     return `${String(value.metadata?.method || 'POST')} ${String(value.metadata?.url || '未配置 URL')}`;
   }
   if (value.implementation === 'mcp') {
-    return `${String(value.metadata?.transport || 'http')} · ${String(value.metadata?.tool_name || '未配置工具')} · ${String(value.metadata?.url || value.metadata?.command || '未配置服务')}`;
+    return `${String(value.metadata?.transport || 'http')} · ${String(value.metadata?.tool_name || '未配置 Tool')} · ${String(value.metadata?.url || value.metadata?.command || '未配置服务')}`;
   }
   return '平台内置';
 }
@@ -364,7 +364,7 @@ export function ToolManagement() {
   const saveTool = useMutation({
     mutationFn: (values: any) => {
       if (!canManageTools) {
-        throw new Error('工具定义由管理员统一管理');
+        throw new Error('Tool Definition 由管理员统一管理');
       }
       let advancedMetadata: Record<string, unknown> = {};
       try {
@@ -433,21 +433,21 @@ export function ToolManagement() {
       return editingTool ? api.updateTool(editingTool.id, payload) : api.createTool(payload);
     },
     onSuccess: () => {
-      message.success('工具已保存');
+      message.success('Tool 已保存');
       setToolOpen(false);
       queryClient.invalidateQueries({ queryKey: ['tools'] });
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
       queryClient.invalidateQueries({ queryKey: ['tool-audits'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '工具配置保存失败');
+      message.error(error instanceof Error ? error.message : 'Tool 配置保存失败');
     },
   });
 
   const importOpenApiTools = useMutation({
     mutationFn: (values: any) => {
       if (!canManageTools) {
-        throw new Error('工具导入由管理员统一管理');
+        throw new Error('Tool 导入由管理员统一管理');
       }
       let spec = {};
       try {
@@ -479,24 +479,24 @@ export function ToolManagement() {
   const discoverMcpTools = useMutation({
     mutationFn: async () => {
       if (!canManageTools) {
-        throw new Error('MCP 工具发现由管理员统一管理');
+        throw new Error('MCP Tool 发现由管理员统一管理');
       }
       return api.discoverMcpTools({ metadata: parseMcpImportMetadata() });
     },
     onSuccess: (result) => {
       setMcpDiscoveredTools(result.tools);
       setSelectedMcpToolNames(result.tools.map((item) => item.name));
-      message.success(`发现 ${result.tools.length} 个 MCP 工具`);
+      message.success(`发现 ${result.tools.length} 个 MCP Tools`);
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : 'MCP 工具发现失败');
+      message.error(error instanceof Error ? error.message : 'MCP Tool 发现失败');
     },
   });
 
   const importMcpTools = useMutation({
     mutationFn: (values: any) => {
       if (!canManageTools) {
-        throw new Error('MCP 工具导入由管理员统一管理');
+        throw new Error('MCP Tool 导入由管理员统一管理');
       }
       return api.importMcpTools({
         ...values,
@@ -513,7 +513,7 @@ export function ToolManagement() {
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : 'MCP 工具导入失败');
+      message.error(error instanceof Error ? error.message : 'MCP Tool 导入失败');
     },
   });
 
@@ -525,7 +525,7 @@ export function ToolManagement() {
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '工具连通测试失败');
+      message.error(error instanceof Error ? error.message : 'Tool 连通测试失败');
       queryClient.invalidateQueries({ queryKey: ['tool-audits'] });
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
     },
@@ -534,12 +534,12 @@ export function ToolManagement() {
   const deleteTool = useMutation({
     mutationFn: (id: string) => {
       if (!canManageTools) {
-        throw new Error('工具删除由管理员统一管理');
+        throw new Error('Tool 删除由管理员统一管理');
       }
       return api.deleteTool(id);
     },
     onSuccess: () => {
-      message.success('工具已删除');
+      message.success('Tool 已删除');
       queryClient.invalidateQueries({ queryKey: ['tools'] });
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
       queryClient.invalidateQueries({ queryKey: ['skill-health'] });
@@ -547,7 +547,7 @@ export function ToolManagement() {
       queryClient.invalidateQueries({ queryKey: ['agent-completeness'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '工具删除失败');
+      message.error(error instanceof Error ? error.message : 'Tool 删除失败');
     },
   });
 
@@ -562,7 +562,7 @@ export function ToolManagement() {
         : api.createToolSecret(payload);
     },
     onSuccess: () => {
-      message.success('工具密钥已保存');
+      message.success('Tool Secret 已保存');
       setSecretOpen(false);
       queryClient.invalidateQueries({ queryKey: ['tool-secrets'] });
       queryClient.invalidateQueries({ queryKey: ['tool-health'] });
@@ -570,13 +570,13 @@ export function ToolManagement() {
       queryClient.invalidateQueries({ queryKey: ['agent-preflight'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '工具密钥保存失败');
+      message.error(error instanceof Error ? error.message : 'Tool Secret 保存失败');
     },
   });
 
   const openTool = (record?: ToolDefinition, implementation: 'http' | 'mcp' = 'http') => {
     if (!canManageTools) {
-      message.warning('工具定义由管理员统一管理');
+      message.warning('Tool Definition 由管理员统一管理');
       return;
     }
     const values = record || (implementation === 'mcp' ? defaultMcpTool : defaultHttpTool);
@@ -607,7 +607,7 @@ export function ToolManagement() {
 
   const openMcpImport = () => {
     if (!canManageTools) {
-      message.warning('MCP 工具导入由管理员统一管理');
+      message.warning('MCP Tool 导入由管理员统一管理');
       return;
     }
     mcpImportForm.setFieldsValue({
@@ -623,7 +623,7 @@ export function ToolManagement() {
 
   const openToolSecret = (record?: ToolSecret) => {
     if (!canManageToolSecrets) {
-      message.warning('工具密钥由管理员统一管理');
+      message.warning('Tool Secret 由管理员统一管理');
       return;
     }
     setEditingSecret(record || null);
@@ -649,7 +649,7 @@ export function ToolManagement() {
 
   const openOpenApiImport = () => {
     if (!canManageTools) {
-      message.warning('OpenAPI 工具导入由管理员统一管理');
+      message.warning('OpenAPI Tool 导入由管理员统一管理');
       return;
     }
     openApiForm.setFieldsValue({
@@ -702,7 +702,7 @@ export function ToolManagement() {
     {
       key: 'mcp-create',
       disabled: !canManageTools,
-      label: '新建 MCP 工具',
+      label: '新建 MCP Tool',
     },
   ];
 
@@ -715,7 +715,7 @@ export function ToolManagement() {
 
   const toggleToolStatus = async (item: ToolDefinition) => {
     if (!canManageTools) {
-      message.warning('工具状态由管理员统一管理');
+      message.warning('Tool 状态由管理员统一管理');
       return;
     }
     await api.updateTool(item.id, { status: item.status === 'active' ? 'inactive' : 'active' });
@@ -750,7 +750,7 @@ export function ToolManagement() {
         color: globalAllowedHosts.length ? undefined : 'warning',
       },
       {
-        text: toolAllowedHosts.length ? `工具 ${toolAllowedHosts.join(', ')}` : '工具未配置允许 host',
+        text: toolAllowedHosts.length ? `Tool ${toolAllowedHosts.join(', ')}` : 'Tool 未配置允许 host',
         color: toolAllowedHosts.length ? undefined : 'warning',
       },
     ].filter((tag) => tag.text);
@@ -776,25 +776,25 @@ export function ToolManagement() {
       <section className="tool-console">
         <div className="tool-console-header">
           <div>
-            <h2>工具治理台账</h2>
-            <p>先确认工具是否可上线、谁能调用、能访问哪些地址、最近是否跑通，再进入接入参数和技术详情。</p>
+            <h2>Tool Registry</h2>
+            <p>先确认 Tool 是否可上线、谁能调用、能访问哪些地址、最近是否跑通，再进入接入参数和技术详情。</p>
           </div>
           <Space className="tool-command-bar" wrap size={[8, 8]}>
             <Dropdown menu={{ items: advancedActionItems, onClick: handleAdvancedAction }} trigger={['click']}>
               <Button icon={<MoreHorizontal size={16} />}>
-                接入工具
+                接入 Tool
               </Button>
             </Dropdown>
-            <Button type="primary" icon={<Plus size={16} />} disabled={!canManageTools} title={canManageTools ? '新建 HTTP 工具' : '需管理员权限'} onClick={() => openTool(undefined, 'http')}>
-              新建工具
+            <Button type="primary" icon={<Plus size={16} />} disabled={!canManageTools} title={canManageTools ? '新建 HTTP Tool' : '需管理员权限'} onClick={() => openTool(undefined, 'http')}>
+              新建 Tool
             </Button>
           </Space>
         </div>
-        <div className="asset-workflow-strip" aria-label="工具接入流程">
+        <div className="asset-workflow-strip" aria-label="Tool onboarding flow">
           <div>
-            <span>工具资产</span>
+            <span>Tools</span>
             <strong>{governanceMetrics.totalTools}</strong>
-            <em>已接入工具</em>
+            <em>已接入 Tools</em>
           </div>
           <div>
             <span>授权边界</span>
@@ -802,7 +802,7 @@ export function ToolManagement() {
             <em>密钥引用</em>
           </div>
           <div>
-            <span>运行证据</span>
+            <span>Run Evidence</span>
             <strong>{governanceMetrics.failedAudits}</strong>
             <em>最近失败</em>
           </div>
@@ -820,11 +820,11 @@ export function ToolManagement() {
         <div className="tool-workbench-grid">
           <PageSurface
             className="tool-risk-surface"
-            title="待处理工具"
+            title="待处理 Tools"
             description="未通过项、访问边界失败和最近运行失败会优先进入队列。"
           >
             {toolHealth.isLoading ? (
-              <div className="mini-empty">正在加载工具检查状态...</div>
+              <div className="mini-empty">正在加载 Tool 检查状态...</div>
             ) : toolRiskItems.length > 0 ? (
               <div className="tool-risk-list">
                 {toolRiskItems.map((item) => {
@@ -863,27 +863,27 @@ export function ToolManagement() {
               <div className="tool-empty-state">
                 <ShieldCheck size={18} />
                 <strong>当前没有待处理风险</strong>
-                <span>上线检查、访问边界和最近运行证据未发现未通过项。</span>
+                <span>上线检查、访问边界和最近 Run Evidence 未发现未通过项。</span>
               </div>
             )}
           </PageSurface>
           <PageSurface
             className="tool-policy-surface"
             title="安全边界"
-            description="授权凭据、访问边界和运行证据共同决定工具是否允许上线。"
+            description="授权凭据、访问边界和 Run Evidence 共同决定 Tool 是否允许上线。"
           >
             <div className="tool-policy-list">
               <div>
                 <KeyRound size={16} />
-                <span>{governanceMetrics.secretRefs} 个工具引用密钥，{governanceMetrics.configuredSecrets}/{governanceMetrics.totalSecrets} 个密钥已配置。</span>
+                <span>{governanceMetrics.secretRefs} 个 Tool 引用密钥，{governanceMetrics.configuredSecrets}/{governanceMetrics.totalSecrets} 个密钥已配置。</span>
               </div>
               <div>
                 <Network size={16} />
-                <span>{governanceMetrics.egressPolicies} 个外部工具配置了工具级访问边界。</span>
+                <span>{governanceMetrics.egressPolicies} 个外部 Tool 配置了 Tool 级访问边界。</span>
               </div>
               <div>
                 <AlertTriangle size={16} />
-                <span>删除工具前必须解除 Agent、能力包、上线版本、存量运行和运行证据引用。</span>
+                <span>删除 Tool 前必须解除 Agent、Skills、上线版本、存量运行和 Run Evidence 引用。</span>
               </div>
             </div>
           </PageSurface>
@@ -892,7 +892,7 @@ export function ToolManagement() {
           <section className="governance-panel">
             <div className="governance-panel-title">
               <span>密钥引用</span>
-              <small>{canManageToolSecrets ? '只保存引用到工具高级属性，页面不回显密钥值。' : '当前角色可查看密钥配置状态，轮换和删除需管理员权限。'}</small>
+              <small>{canManageToolSecrets ? '只保存引用到 Tool 高级属性，页面不回显密钥值。' : '当前角色可查看密钥配置状态，轮换和删除需管理员权限。'}</small>
             </div>
             <Table
               scroll={{ x: 560 }}
@@ -916,7 +916,7 @@ export function ToolManagement() {
                     <Space>
                       <Button size="small" disabled={!canManageToolSecrets} onClick={() => openToolSecret(record)}>轮换</Button>
                       <Popconfirm
-                        title="确定删除该工具密钥？引用它的 HTTP 工具会调用失败。"
+                        title="确定删除该 Tool Secret？引用它的 HTTP Tool 会调用失败。"
                         disabled={!canManageToolSecrets}
                         onConfirm={() => deleteToolSecret(record.id)}
                       >
@@ -930,8 +930,8 @@ export function ToolManagement() {
           </section>
           <section className="governance-panel">
             <div className="governance-panel-title">
-              <span>工具运行证据</span>
-              <small>记录工具连通测试和线上运行时调用结果。</small>
+              <span>Tool Evidence</span>
+              <small>记录 Tool 连通测试和线上运行时调用结果。</small>
             </div>
             <Table
               scroll={{ x: 980 }}
@@ -940,7 +940,7 @@ export function ToolManagement() {
               pagination={false}
               dataSource={toolAudits.data || []}
               columns={[
-                { title: '工具', dataIndex: 'tool_id', width: 150 },
+                { title: 'Tool', dataIndex: 'tool_id', width: 150 },
                 {
                   title: '结果',
                   dataIndex: 'status',
@@ -1002,8 +1002,8 @@ export function ToolManagement() {
         </div>
         <PageSurface className="studio-table-surface tool-inventory-surface">
           <TableToolbar
-          title="工具治理台账"
-          description="以可用状态、授权状态、访问边界、运行证据和使用方作为首层判断。"
+          title="Tool Registry"
+          description="以可用状态、授权状态、访问边界、Run Evidence 和使用方作为首层判断。"
           />
           <Table<ToolDefinition>
             scroll={{ x: 1360 }}
@@ -1012,7 +1012,7 @@ export function ToolManagement() {
             dataSource={toolsData}
             columns={[
               {
-                title: '工具',
+                title: 'Tool',
                 dataIndex: 'name',
                 render: (_, record) => (
                   <EntityCell
@@ -1081,7 +1081,7 @@ export function ToolManagement() {
                   if (!usage) return <span className="audit-subtle">未绑定</span>;
                   return (
                     <div className="tool-usage-cell">
-                      <strong>{usage.services + usage.subagents} Agent / {usage.skills} 能力包</strong>
+                      <strong>{usage.services + usage.subagents} Agent / {usage.skills} Skills</strong>
                       <span>{usage.publishedServices ? `${usage.publishedServices} 个线上引用` : '未影响线上'}</span>
                     </div>
                   );
@@ -1097,7 +1097,7 @@ export function ToolManagement() {
                 },
               },
               {
-                title: '最近运行证据',
+                title: '最近 Run Evidence',
                 width: 150,
                 render: (_, record) => {
                   const health = toolHealthById[record.id];
@@ -1130,8 +1130,8 @@ export function ToolManagement() {
                           if (key === 'toggle') toggleToolStatus(record);
                           if (key === 'delete') {
                             modal.confirm({
-                              title: '确定删除该工具？',
-                              content: '仍被 Agent、能力包、上线版本、存量运行或工具运行证据引用时后端会拒绝删除。',
+                              title: '确定删除该 Tool？',
+                              content: '仍被 Agent、Skills、上线版本、存量运行或 Tool Evidence 引用时后端会拒绝删除。',
                               okText: '删除',
                               okButtonProps: { danger: true },
                               cancelText: '取消',
@@ -1153,7 +1153,7 @@ export function ToolManagement() {
       </section>
 
       <Drawer
-        title={selectedTool ? `工具详情 · ${selectedTool.name}` : '工具详情'}
+        title={selectedTool ? `Tool Detail · ${selectedTool.name}` : 'Tool Detail'}
         width={820}
         open={Boolean(selectedTool)}
         onClose={() => {
@@ -1168,11 +1168,11 @@ export function ToolManagement() {
             items={[
               {
                 key: 'definition',
-                label: '工具定义',
+                label: 'Tool Definition',
                 children: (
                   <div className="tool-detail-panel">
                     <section>
-                      <h3>工具定义</h3>
+                      <h3>Tool Definition</h3>
                       <div className="tool-definition-hero">
                         <EntityCell
                           icon={<Wrench size={18} />}
@@ -1189,7 +1189,7 @@ export function ToolManagement() {
                       </div>
                     </section>
                     <div className="kv-list">
-                      <div><span>工具标识</span><strong>{selectedTool.id}</strong></div>
+                      <div><span>Tool ID</span><strong>{selectedTool.id}</strong></div>
                       <div><span>接入方式</span><strong>{implementationLabel(selectedTool.implementation)}</strong></div>
                       <div><span>创建时间</span><strong>{formatDate(selectedTool.created_at)}</strong></div>
                       <div><span>更新时间</span><strong>{formatDate(selectedTool.updated_at)}</strong></div>
@@ -1224,7 +1224,7 @@ export function ToolManagement() {
                     </section>
                     <section>
                       <h3>访问边界</h3>
-                      {renderEgressSummary(selectedToolHealth) || <div className="mini-empty compact">当前工具无需额外访问边界。</div>}
+                      {renderEgressSummary(selectedToolHealth) || <div className="mini-empty compact">当前 Tool 无需额外访问边界。</div>}
                     </section>
                     <section>
                       <h3>上线检查</h3>
@@ -1253,7 +1253,7 @@ export function ToolManagement() {
                   const currentRole = currentUser.data?.membership.role || 'viewer';
                   const canInvokeTool = roleRank[currentRole] >= roleRank[requiredRole];
                   const invokeDisabledReason = selectedTool.status !== 'active'
-                    ? '工具已停用，无法连通测试'
+                    ? 'Tool 已停用，无法连通测试'
                     : canInvokeTool
                       ? ''
                       : `当前角色为${roleMeta[currentRole].label}，调用需 ${roleMeta[requiredRole].label}`;
@@ -1263,10 +1263,10 @@ export function ToolManagement() {
                         rows={6}
                         value={toolInput}
                         onChange={(event) => setToolInput(event.target.value)}
-                        placeholder={selectedTool.implementation === 'builtin' ? '按工具要求输入文本' : '输入文本或 JSON 字符串作为工具入参'}
+                        placeholder={selectedTool.implementation === 'builtin' ? '按 Tool 要求输入文本' : '输入文本或 JSON 字符串作为 Tool 入参'}
                       />
                       <Space>
-                        <Tooltip title={invokeDisabledReason || '按当前输入调用工具并写入运行证据'}>
+                        <Tooltip title={invokeDisabledReason || '按当前输入调用 Tool 并写入 Run Evidence'}>
                           <span>
                             <Button
                               type="primary"
@@ -1287,7 +1287,7 @@ export function ToolManagement() {
               },
               {
                 key: 'audit',
-                label: '运行证据',
+                label: 'Run Evidence',
                 children: (
                   <Table
                     scroll={{ x: 720 }}
@@ -1314,7 +1314,7 @@ export function ToolManagement() {
                       <>
                         <div className="tool-impact-list">
                           <div><GitBranch size={14} /><span>Agent 绑定</span><strong>{selectedToolUsage.services + selectedToolUsage.subagents}</strong></div>
-                          <div><Wrench size={14} /><span>能力引用</span><strong>{selectedToolUsage.skills}</strong></div>
+                          <div><Wrench size={14} /><span>Skill 引用</span><strong>{selectedToolUsage.skills}</strong></div>
                           <div><ShieldCheck size={14} /><span>线上引用</span><strong>{selectedToolUsage.publishedServices}</strong></div>
                           <p>{[...selectedToolUsage.serviceNames, ...selectedToolUsage.skillNames].slice(0, 8).join('、') || '未绑定'}</p>
                         </div>
@@ -1325,13 +1325,13 @@ export function ToolManagement() {
                               <div key={`service-${name}`}><GitBranch size={14} /><span>Agent</span><strong>{name}</strong></div>
                             ))}
                             {selectedToolUsage.skillNames.map((name) => (
-                              <div key={`skill-${name}`}><Wrench size={14} /><span>能力包</span><strong>{name}</strong></div>
+                              <div key={`skill-${name}`}><Wrench size={14} /><span>Skill</span><strong>{name}</strong></div>
                             ))}
                           </div>
                         </section>
                       </>
                     ) : (
-                      <div className="mini-empty compact">当前没有 Agent 或能力包 绑定这个工具。</div>
+                      <div className="mini-empty compact">当前没有 Agent 或 Skill 绑定这个 Tool。</div>
                     )}
                   </div>
                 ),
@@ -1343,10 +1343,10 @@ export function ToolManagement() {
                   <div className="expert-mode-block">
                     <div className="secret-note">
                       <strong>技术详情</strong>
-                      <span>仅用于高级排障和协议级核查；日常治理请优先使用工具定义、授权边界、连通测试和运行证据。</span>
+                      <span>仅用于高级排障和协议级核查；日常治理请优先使用 Tool Definition、授权边界、连通测试和 Run Evidence。</span>
                     </div>
                     <details className="tool-metadata-details">
-                      <summary>查看工具配置 JSON</summary>
+                      <summary>查看 Tool 配置 JSON</summary>
                       <pre className="tool-metadata-preview">{JSON.stringify(selectedTool.metadata || {}, null, 2)}</pre>
                     </details>
                   </div>
@@ -1357,13 +1357,13 @@ export function ToolManagement() {
         )}
       </Drawer>
 
-      <Drawer title={editingTool ? `编辑工具 · ${editingTool.id}` : '新建工具'} width={760} open={toolOpen} onClose={() => setToolOpen(false)}>
+      <Drawer title={editingTool ? `编辑 Tool · ${editingTool.id}` : '新建 Tool'} width={760} open={toolOpen} onClose={() => setToolOpen(false)}>
         <Form form={toolForm} layout="vertical" onFinish={(values) => saveTool.mutate(values)}>
           <div className="drawer-section-grid">
             <section>
               <h3>基本信息</h3>
               <Space.Compact block>
-                <Form.Item name="id" label="工具标识" className="compact-field" rules={[{ required: true }]}>
+                <Form.Item name="id" label="Tool ID" className="compact-field" rules={[{ required: true }]}>
                   <Input disabled={Boolean(editingTool)} placeholder="company_search" />
                 </Form.Item>
                 <Form.Item name="implementation" label="接入方式" className="compact-field" rules={[{ required: true }]}>
@@ -1413,7 +1413,7 @@ export function ToolManagement() {
                       <Form.Item name="transport" label="传输" className="compact-field">
                         <Select options={[{ value: 'http', label: 'HTTP' }, { value: 'stdio', label: 'STDIO' }]} />
                       </Form.Item>
-                      <Form.Item name="tool_name" label="MCP 工具名" className="compact-field" rules={[{ required: true }]}>
+                      <Form.Item name="tool_name" label="MCP Tool 名" className="compact-field" rules={[{ required: true }]}>
                         <Input placeholder="search" />
                       </Form.Item>
                     </Space.Compact>
@@ -1470,7 +1470,7 @@ export function ToolManagement() {
                   key: 'metadata',
                 label: '技术详情',
                   children: (
-                    <Form.Item label="工具配置 JSON">
+                    <Form.Item label="Tool 配置 JSON">
                       <Input.TextArea
                         className="json-textarea"
                         rows={8}
@@ -1484,15 +1484,15 @@ export function ToolManagement() {
             />
           </div>
           <div className="drawer-sticky-actions">
-            <Button type="primary" htmlType="submit" loading={saveTool.isPending}>保存工具</Button>
+            <Button type="primary" htmlType="submit" loading={saveTool.isPending}>保存 Tool</Button>
           </div>
         </Form>
       </Drawer>
 
-      <Drawer title="导入 OpenAPI 工具" width={760} open={openApiOpen} onClose={() => setOpenApiOpen(false)}>
+      <Drawer title="导入 OpenAPI Tools" width={760} open={openApiOpen} onClose={() => setOpenApiOpen(false)}>
         <Form form={openApiForm} layout="vertical" onFinish={(values) => importOpenApiTools.mutate(values)}>
           <Space.Compact block>
-            <Form.Item name="prefix" label="工具标识前缀" className="compact-field">
+            <Form.Item name="prefix" label="Tool ID 前缀" className="compact-field">
               <Input placeholder="例如 search" />
             </Form.Item>
             <Form.Item name="category" label="分类" className="compact-field">
@@ -1500,7 +1500,7 @@ export function ToolManagement() {
             </Form.Item>
           </Space.Compact>
           <Space.Compact block>
-            <Form.Item name="overwrite" label="覆盖同名工具" valuePropName="checked" className="compact-field">
+            <Form.Item name="overwrite" label="覆盖同名 Tool" valuePropName="checked" className="compact-field">
               <Switch />
             </Form.Item>
             <Form.Item name="allow_private_networks" label="允许私网/本机" valuePropName="checked" className="compact-field">
@@ -1509,7 +1509,7 @@ export function ToolManagement() {
           </Space.Compact>
           <div className="secret-note">
             <strong>结构化接入</strong>
-            <span>从 OpenAPI 3 文档生成接口工具；导入后仍需要复核权限、密钥、访问边界和连通测试结果。</span>
+            <span>从 OpenAPI 3 文档生成接口 Tools；导入后仍需要复核权限、密钥、访问边界和连通测试结果。</span>
           </div>
           <Form.Item label="OpenAPI 文档 JSON">
             <Input.TextArea
@@ -1519,26 +1519,26 @@ export function ToolManagement() {
               onChange={(event) => setOpenApiSpecText(event.target.value)}
             />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={importOpenApiTools.isPending}>导入工具</Button>
+          <Button type="primary" htmlType="submit" loading={importOpenApiTools.isPending}>导入 Tools</Button>
         </Form>
       </Drawer>
 
-      <Drawer title="导入 MCP 工具" width={820} open={mcpImportOpen} onClose={() => setMcpImportOpen(false)}>
+      <Drawer title="导入 MCP Tools" width={820} open={mcpImportOpen} onClose={() => setMcpImportOpen(false)}>
         <Form form={mcpImportForm} layout="vertical" onFinish={(values) => importMcpTools.mutate(values)}>
           <Space.Compact block>
-            <Form.Item name="prefix" label="工具标识前缀" className="compact-field">
+            <Form.Item name="prefix" label="Tool ID 前缀" className="compact-field">
               <Input placeholder="例如 mcp" />
             </Form.Item>
             <Form.Item name="category" label="分类" className="compact-field">
               <Input placeholder="mcp" />
             </Form.Item>
           </Space.Compact>
-          <Form.Item name="overwrite" label="覆盖同名工具" valuePropName="checked">
+          <Form.Item name="overwrite" label="覆盖同名 Tool" valuePropName="checked">
             <Switch />
           </Form.Item>
           <div className="secret-note">
             <strong>MCP 发现</strong>
-            <span>连接服务后发现工具列表，选中的工具会进入工具资产并继承当前连接策略。</span>
+            <span>连接服务后发现 Tool 列表，选中的 Tools 会进入 Tool Registry 并继承当前连接策略。</span>
           </div>
           <Collapse
             className="advanced-collapse"
@@ -1562,7 +1562,7 @@ export function ToolManagement() {
           />
           <Space className="drawer-action-row">
             <Button loading={discoverMcpTools.isPending} onClick={() => discoverMcpTools.mutate()}>
-              发现工具
+              发现 Tools
             </Button>
             <Button
               type="primary"
@@ -1570,7 +1570,7 @@ export function ToolManagement() {
               loading={importMcpTools.isPending}
               disabled={!selectedMcpToolNames.length}
             >
-              导入选中工具
+              导入选中 Tools
             </Button>
           </Space>
           <Table
@@ -1584,7 +1584,7 @@ export function ToolManagement() {
               onChange: (keys) => setSelectedMcpToolNames(keys.map(String)),
             }}
             columns={[
-              { title: '工具名', dataIndex: 'name', width: 180 },
+              { title: 'Tool 名', dataIndex: 'name', width: 180 },
               { title: '描述', dataIndex: 'description' },
               {
                 title: '参数',
@@ -1600,7 +1600,7 @@ export function ToolManagement() {
         </Form>
       </Drawer>
 
-      <Drawer title={editingSecret ? `轮换密钥 · ${editingSecret.id}` : '新建工具密钥'} width={520} open={secretOpen} onClose={() => setSecretOpen(false)}>
+      <Drawer title={editingSecret ? `轮换 Tool Secret · ${editingSecret.id}` : '新建 Tool Secret'} width={520} open={secretOpen} onClose={() => setSecretOpen(false)}>
         <Form form={secretForm} layout="vertical" onFinish={(values) => saveToolSecret.mutate(values)}>
           <Form.Item name="id" label="密钥 ID" rules={[{ required: true }]}>
             <Input disabled={Boolean(editingSecret)} placeholder="secret_search_api_key" />
@@ -1616,7 +1616,7 @@ export function ToolManagement() {
           </Form.Item>
           <div className="secret-note">
             <strong>引用方式</strong>
-            <span>在工具高级属性或结构化凭证配置中引用密钥 ID，运行时由后端注入真实值。</span>
+            <span>在 Tool 高级属性或结构化凭证配置中引用密钥 ID，运行时由后端注入真实值。</span>
           </div>
           <Button type="primary" htmlType="submit" loading={saveToolSecret.isPending} disabled={!canManageToolSecrets}>保存密钥</Button>
         </Form>

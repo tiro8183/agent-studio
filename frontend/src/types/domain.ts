@@ -303,6 +303,129 @@ export interface AgentRuntimeManifestEnvelope {
   release_id?: string | null;
 }
 
+export type WorkspaceTone = 'ready' | 'warning' | 'blocked' | 'muted' | 'readonly' | 'loading';
+
+export interface WorkspaceMetric {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+  status_tone: WorkspaceTone;
+}
+
+export interface WorkspaceAction {
+  key: string;
+  label: string;
+  target: string;
+  disabled: boolean;
+  reason: string;
+}
+
+export interface RuntimeSummary {
+  manifest_hash: string;
+  source: 'draft' | 'preview' | 'release';
+  direct_tools: RuntimeResource[];
+  skill_references: RuntimeResource[];
+  skill_allowed_tools: RuntimeResource[];
+  runtime_tools: RuntimeResource[];
+  missing_tools: string[];
+  missing_skills: string[];
+  inactive_tools: string[];
+  inactive_skills: string[];
+}
+
+export interface WorkspaceAgentSummary {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  status: AgentLifecycleStatus;
+  status_tone: WorkspaceTone;
+  model: string;
+  version: number;
+  config_pending_publish: boolean;
+  runtime_summary?: RuntimeSummary | null;
+  next_action: string;
+  blockers: number;
+  warnings: number;
+  api_entrypoint: string;
+  contract_model: string;
+  integration_policy: string;
+  approval_status: string;
+  support_contact: string;
+  data_classification: string;
+  risk_level: string;
+  catalog_ready: boolean;
+  catalog_gaps: string[];
+  updated_at: string;
+}
+
+export interface WorkspaceIssue {
+  key: string;
+  label: string;
+  detail: string;
+  severity: 'critical' | 'warning' | 'info';
+  target: string;
+  resource_id: string;
+}
+
+export interface CommandCenterWorkspace {
+  organization_name: string;
+  status_tone: WorkspaceTone;
+  next_action: string;
+  generated_at: string;
+  metrics: WorkspaceMetric[];
+  actions: WorkspaceAction[];
+  priority_agents: WorkspaceAgentSummary[];
+  issues: WorkspaceIssue[];
+}
+
+export interface AgentStudioWorkspace {
+  generated_at: string;
+  agents: WorkspaceAgentSummary[];
+  metrics: WorkspaceMetric[];
+  issues: WorkspaceIssue[];
+}
+
+export interface AssetGovernanceItem {
+  id: string;
+  name: string;
+  description: string;
+  kind: 'model_provider' | 'tool' | 'skill';
+  status: string;
+  status_tone: WorkspaceTone;
+  blockers: number;
+  warnings: number;
+  impact: Record<string, unknown>;
+  runtime_summary?: RuntimeSummary | null;
+  next_action: string;
+  updated_at: string;
+}
+
+export interface AssetGovernanceWorkspace {
+  generated_at: string;
+  metrics: WorkspaceMetric[];
+  providers: AssetGovernanceItem[];
+  tools: AssetGovernanceItem[];
+  skills: AssetGovernanceItem[];
+  issues: WorkspaceIssue[];
+}
+
+export interface RunEvidenceWorkspace {
+  generated_at: string;
+  metrics: WorkspaceMetric[];
+  runs: AgentRun[];
+  issues: WorkspaceIssue[];
+}
+
+export interface OperationsWorkspace {
+  generated_at: string;
+  status_tone: WorkspaceTone;
+  next_action: string;
+  metrics: WorkspaceMetric[];
+  issues: WorkspaceIssue[];
+}
+
 export interface AgentReleaseSnapshot {
   id: string;
   org_id?: string | null;

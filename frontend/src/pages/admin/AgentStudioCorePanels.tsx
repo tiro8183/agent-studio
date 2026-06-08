@@ -47,10 +47,10 @@ export function ProfilePanel({ llmOptions, modelOptions, canEdit }: ProfilePanel
   return (
     <>
       <div className="builder-section-title">
-        <span>服务身份</span>
-        <p>定义服务名称、业务场景和市场信息；执行配置在下方绑定模型通道。</p>
+        <span>Agent 服务画像</span>
+        <p>定义业务场景、目录信息和对外调用边界；执行配置在下方绑定 Model Provider。</p>
       </div>
-      <Form.Item name="name" label="服务名称" rules={[{ required: true }]}>
+      <Form.Item name="name" label="Agent 名称" rules={[{ required: true }]}>
         <Input disabled={!canEdit} />
       </Form.Item>
       <Form.Item
@@ -67,7 +67,7 @@ export function ProfilePanel({ llmOptions, modelOptions, canEdit }: ProfilePanel
       <div className="studio-directory-fields">
         <div className="builder-section-title compact">
           <span>目录信息</span>
-          <p>这些信息会随上线版本进入 Agent 广场和体验台。</p>
+          <p>这些信息会随上线版本进入服务目录、体验台和外部接入说明。</p>
         </div>
         <Space.Compact block>
           <Form.Item name={['metadata', 'service_catalog', 'domain']} label="业务域" className="compact-field">
@@ -88,6 +88,35 @@ export function ProfilePanel({ llmOptions, modelOptions, canEdit }: ProfilePanel
         <Form.Item name={['metadata', 'service_catalog', 'caller_scope']} label="调用范围">
           <Input disabled={!canEdit} placeholder="允许调用的组织、系统或角色" />
         </Form.Item>
+        <Space.Compact block>
+          <Form.Item name={['metadata', 'service_catalog', 'integration_policy']} label="接入策略" className="compact-field">
+            <Input disabled={!canEdit} placeholder="例如 需业务负责人审批 / 组织内可直接调用" />
+          </Form.Item>
+          <Form.Item name={['metadata', 'service_catalog', 'approval_status']} label="审批状态" className="compact-field">
+            <Select
+              disabled={!canEdit}
+              allowClear
+              options={[
+                { value: '可接入', label: '可接入' },
+                { value: '需审批', label: '需审批' },
+                { value: '暂停接入', label: '暂停接入' },
+                { value: '禁止接入', label: '禁止接入' },
+              ]}
+              placeholder="选择外部接入状态"
+            />
+          </Form.Item>
+        </Space.Compact>
+        <Space.Compact block>
+          <Form.Item name={['metadata', 'service_catalog', 'support_contact']} label="支持联系人" className="compact-field">
+            <Input disabled={!canEdit} placeholder="企业微信、邮箱或团队名" />
+          </Form.Item>
+          <Form.Item name={['metadata', 'service_catalog', 'data_classification']} label="数据分级" className="compact-field">
+            <Input disabled={!canEdit} placeholder="例如 内部 / 敏感 / 受限" />
+          </Form.Item>
+        </Space.Compact>
+        <Form.Item name={['metadata', 'service_catalog', 'risk_level']} label="风险等级">
+          <Input disabled={!canEdit} placeholder="例如 常规 / 需复核 / 高风险" />
+        </Form.Item>
         <Form.List name={['metadata', 'service_catalog', 'sample_prompts']}>
           {(fields, { add, remove }) => (
             <div className="catalog-prompt-list">
@@ -97,8 +126,8 @@ export function ProfilePanel({ llmOptions, modelOptions, canEdit }: ProfilePanel
                   添加任务
                 </Button>
               </div>
-              {fields.map((field) => (
-                <Space.Compact block key={field.key}>
+              {fields.map(({ key, ...field }) => (
+                <Space.Compact block key={key}>
                   <Form.Item {...field} className="compact-field" rules={[{ max: 220, message: '体验任务不能超过 220 字' }]}>
                     <Input disabled={!canEdit} placeholder="输入一条可复用的业务任务" />
                   </Form.Item>
@@ -112,12 +141,13 @@ export function ProfilePanel({ llmOptions, modelOptions, canEdit }: ProfilePanel
       <details className="studio-call-contract">
         <summary>
           <TerminalSquare size={15} />
-          <span>开发接入</span>
+          <span>API 接入</span>
         </summary>
         <div>
-          <strong>标准执行入口</strong>
+          <strong>标准执行协议</strong>
+          <code>POST /v1/responses</code>
           <code>{`调用标识：${modelRef}`}</code>
-          <small>上线后，体验台、外部业务系统和 SDK 会使用同一执行入口。</small>
+          <small>上线后，体验台、外部业务系统和 SDK 会使用同一协议，并写入运行证据。</small>
         </div>
       </details>
     </>
@@ -128,7 +158,7 @@ export function ModelContractPanel({ llmOptions, modelOptions, canEdit }: Profil
   return (
     <>
       <div className="builder-section-title">
-        <span>模型合约</span>
+        <span>模型调用合约</span>
         <p>冻结模型通道、默认模型和调用参数；发布后只重新读取密钥引用，不漂移调用配置。</p>
       </div>
       <Space.Compact block>
@@ -159,7 +189,7 @@ export function InstructionsPanel({ canEdit }: { canEdit: boolean }) {
     <>
       <div className="builder-section-title">
         <span>执行标准</span>
-        <p>维护职责、业务边界、工具使用方式和交付标准。</p>
+        <p>维护职责、业务边界、Tool 使用方式和交付标准。</p>
       </div>
       <Form.Item name="system_prompt" label="执行说明" rules={[{ required: true }]}>
         <Input.TextArea rows={8} disabled={!canEdit} />
@@ -190,26 +220,26 @@ export function CapabilitiesPanel({
   return (
     <>
       <div className="builder-section-title">
-        <span>运行编排</span>
-        <p>组合主流程可直接使用的工具、能力包和服务记忆。</p>
+        <span>Runtime 组成</span>
+        <p>组合主流程 direct Tools、Skills 与 Memory；最终 Runtime Tools 只信任后端 Runtime Manifest。</p>
       </div>
-      <Form.Item name="tools" label="可用工具">
+      <Form.Item name="tools" label="Direct Tools">
         <Select
           disabled={!canEdit}
           mode="multiple"
           options={toolOptions}
-          placeholder="选择这个 Agent 可使用的工具"
+          placeholder="选择这个 Agent 主流程可直接使用的 Tools"
         />
       </Form.Item>
-      <Form.Item name="skills" label="能力包">
+      <Form.Item name="skills" label="Skills">
         <Select
           disabled={!canEdit}
           mode="multiple"
           options={skillOptions}
-          placeholder="选择主流程加载的能力包"
+          placeholder="选择主流程加载的 Skills"
         />
       </Form.Item>
-      <Form.Item name="memory" label="服务记忆">
+      <Form.Item name="memory" label="Memory">
         <Select
           disabled={!canEdit}
           mode="tags"
@@ -247,18 +277,18 @@ export function SubagentsPanel({
   return (
     <>
       <div className="builder-section-title">
-        <span>协作角色</span>
+        <span>Subagents</span>
         <p>为研究、执行、审核等任务配置可委派的专业角色。</p>
       </div>
       <Form.List name="subagents">
         {(fields, { add, remove }) => (
           <div className="rules-box">
             <div className="rules-title">
-              <span>协作角色</span>
+              <span>Subagents</span>
               <Button
                 size="small"
                 disabled={!canEdit}
-                title={canEdit ? '添加协作角色' : '需编辑权限'}
+                title={canEdit ? '添加 Subagent' : '需编辑权限'}
                 onClick={() => add({
                   name: '',
                   description: '',
@@ -274,7 +304,7 @@ export function SubagentsPanel({
                   interrupt_tools: [],
                 })}
               >
-                添加协作角色
+                添加 Subagent
               </Button>
             </div>
             {fields.map((field) => (
@@ -304,13 +334,13 @@ export function SubagentsPanel({
                     />
                   </Form.Item>
                 </Space.Compact>
-                <Form.Item name={[field.name, 'tools']} label="可用工具">
+                <Form.Item name={[field.name, 'tools']} label="Direct Tools">
                   <Select disabled={!canEdit} mode="multiple" options={toolOptions} />
                 </Form.Item>
-                <Form.Item name={[field.name, 'skills']} label="可用能力包">
+                <Form.Item name={[field.name, 'skills']} label="Skills">
                   <Select disabled={!canEdit} mode="multiple" options={skillOptions} />
                 </Form.Item>
-                <Form.Item name={[field.name, 'memory']} label="角色偏好">
+                <Form.Item name={[field.name, 'memory']} label="Memory">
                   <Select disabled={!canEdit} mode="tags" tokenSeparators={[',', '，']} />
                 </Form.Item>
                 <Space.Compact block>
@@ -328,12 +358,12 @@ export function SubagentsPanel({
                     placeholder='{"type":"object","properties":{"summary":{"type":"string"}}}'
                   />
                 </Form.Item>
-                <Form.Item name={[field.name, 'interrupt_tools']} label="需人工确认的工具">
+                <Form.Item name={[field.name, 'interrupt_tools']} label="需人工确认的 Tools">
                   <Select
                     disabled={!canEdit}
                     mode="tags"
                     tokenSeparators={[',', '，']}
-                    placeholder="选择需要人工确认的工具"
+                    placeholder="选择需要人工确认的 Tools"
                   />
                 </Form.Item>
                 <Space.Compact block>

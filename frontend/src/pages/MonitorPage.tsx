@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, InputNumber, Popconfirm, Progress, Space, Switch, Tag } from 'antd';
 import { Activity, AlertTriangle, CheckCircle2, Database, HardDrive, RefreshCw, RotateCcw, Scissors, ShieldCheck } from 'lucide-react';
-import { PageSurface, StatusSummary, WorkspacePage } from '../components/ui';
+import { PageSurface, StatusSummary, WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
 import { api } from '../services/api';
 import { productTerms, runtimeActorLabel, visibleRuntimeText } from '../services/productLanguage';
+import { workspaceApi } from '../services/workspaceApi';
 import type { LLMHealthBreakdownItem, LLMUsageBreakdownItem, OrganizationRole, RunRetentionRequest } from '../types/domain';
 
 const roleRank: Record<OrganizationRole, number> = {
@@ -51,6 +52,7 @@ export default function MonitorPage() {
   const [retentionForm, setRetentionForm] = useState<RunRetentionRequest>({});
 
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 10000 });
+  const workspace = useQuery({ queryKey: ['workspace', 'operations'], queryFn: workspaceApi.operations, refetchInterval: 30000 });
   const llmUsageBreakdown = useQuery({ queryKey: ['llm-usage-breakdown'], queryFn: api.llmUsageBreakdown, refetchInterval: 30000 });
   const llmHealthBreakdown = useQuery({ queryKey: ['llm-health-breakdown'], queryFn: api.llmHealthBreakdown, refetchInterval: 30000 });
   const currentUser = useQuery({ queryKey: ['me'], queryFn: api.me });
@@ -139,9 +141,9 @@ export default function MonitorPage() {
     <WorkspacePage
       className="monitor-page"
       icon={<Activity size={14} />}
-      eyebrow="平台观测"
-      title="平台观测"
-      description="查看模型可用性、运行异常、容量和清理策略。"
+      eyebrow="治理"
+      title="可观测性"
+      description="查看 Model Provider 可用性、运行证据异常、容量和清理策略。"
       actions={
         canViewReadiness && readiness.data && (
           <Tag color={readiness.data.status === 'ready' ? 'success' : readiness.data.status === 'degraded' ? 'warning' : 'error'}>
@@ -150,6 +152,16 @@ export default function MonitorPage() {
         )
       }
     >
+      <section className="surface page-surface operations-workspace-summary">
+        <div className="surface-header">
+          <div>
+            <h2>Operations Read Model</h2>
+            <p>{workspace.data?.next_action || '正在读取后端聚合的运行态势。'}</p>
+          </div>
+        </div>
+        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+        <WorkspaceIssueList items={workspace.data?.issues || []} emptyLabel="当前没有运维未通过项。" />
+      </section>
       <StatusSummary
         ariaLabel="平台运行保障台"
         badge={readinessLabel}

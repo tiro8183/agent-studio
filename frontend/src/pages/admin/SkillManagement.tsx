@@ -124,40 +124,40 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       try {
         metadata = JSON.parse(skillMetadataText || '{}');
       } catch {
-        throw new Error('能力包元数据必须是合法 JSON 对象');
+        throw new Error('Skill metadata 必须是合法 JSON 对象');
       }
       const payload = { ...values, metadata };
       return editingSkill ? api.updateSkill(editingSkill.id, payload) : api.createSkill(payload);
     },
     onSuccess: () => {
-      message.success('能力包已保存');
+      message.success('Skill 已保存');
       setSkillOpen(false);
       queryClient.invalidateQueries({ queryKey: ['skills'] });
       queryClient.invalidateQueries({ queryKey: ['skill-health'] });
       queryClient.invalidateQueries({ queryKey: ['agent-preflight'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '能力包保存失败');
+      message.error(error instanceof Error ? error.message : 'Skill 保存失败');
     },
   });
 
   const publishSkill = useMutation({
     mutationFn: (id: string) => api.publishSkillVersion(id),
     onSuccess: () => {
-      message.success('能力包版本已记录');
+      message.success('Skill 版本已记录');
       queryClient.invalidateQueries({ queryKey: ['skill-versions', versioningSkill?.id] });
       queryClient.invalidateQueries({ queryKey: ['skills'] });
       queryClient.invalidateQueries({ queryKey: ['skill-health'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '能力包版本记录失败');
+      message.error(error instanceof Error ? error.message : 'Skill 版本记录失败');
     },
   });
 
   const restoreSkill = useMutation({
     mutationFn: (params: { id: string; version: number }) => api.restoreSkillVersion(params.id, params.version),
     onSuccess: (saved) => {
-      message.success('能力包已恢复为历史版本');
+      message.success('Skill 已恢复为历史版本');
       setVersioningSkill(saved);
       queryClient.invalidateQueries({ queryKey: ['skill-versions', saved.id] });
       queryClient.invalidateQueries({ queryKey: ['skills'] });
@@ -166,7 +166,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       queryClient.invalidateQueries({ queryKey: ['agent-preflight'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '能力包恢复失败');
+      message.error(error instanceof Error ? error.message : 'Skill 恢复失败');
     },
   });
 
@@ -174,10 +174,10 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
     mutationFn: (id: string) => api.exportSkill(id),
     onSuccess: (result) => {
       setSkillExportText(JSON.stringify(result, null, 2));
-      message.success('能力包导出包已生成');
+      message.success('Skill 导出包已生成');
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '能力包导出失败');
+      message.error(error instanceof Error ? error.message : 'Skill 导出失败');
     },
   });
 
@@ -187,7 +187,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       try {
         packageData = JSON.parse(skillImportText || '{}');
       } catch {
-        throw new Error('能力包导入包必须是合法 JSON 对象');
+        throw new Error('Skill 导入包必须是合法 JSON 对象');
       }
       return api.importSkill({
         package: packageData as Record<string, unknown>,
@@ -196,14 +196,14 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       });
     },
     onSuccess: () => {
-      message.success('能力包已导入');
+      message.success('Skill 已导入');
       setSkillImportOpen(false);
       queryClient.invalidateQueries({ queryKey: ['skills'] });
       queryClient.invalidateQueries({ queryKey: ['skill-health'] });
       queryClient.invalidateQueries({ queryKey: ['agent-preflight'] });
     },
     onError: (error) => {
-      message.error(error instanceof Error ? error.message : '能力包导入失败');
+      message.error(error instanceof Error ? error.message : 'Skill 导入失败');
     },
   });
 
@@ -213,7 +213,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       try {
         packageData = JSON.parse(skillImportText || '{}');
       } catch {
-        throw new Error('能力包导入包必须是合法 JSON 对象');
+        throw new Error('Skill 导入包必须是合法 JSON 对象');
       }
       return api.previewSkillImport({
         package: packageData as Record<string, unknown>,
@@ -256,7 +256,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
     try {
       setSkillRuntimePreview(await api.getSkillRuntimePreview(record.id));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '能力包运行预览加载失败');
+      message.error(error instanceof Error ? error.message : 'Skill Runtime Preview 加载失败');
     }
   };
 
@@ -264,7 +264,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
     try {
       setSkillImpact(await api.getSkillImpact(record.id));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '能力包影响分析加载失败');
+      message.error(error instanceof Error ? error.message : 'Skill 影响分析加载失败');
     }
   };
 
@@ -277,7 +277,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
 
   const openDeleteSkillConfirm = (record: Skill) => {
     modal.confirm({
-      title: '确定删除该能力包？',
+      title: '确定删除该 Skill？',
       content: '仍被 Agent、上线版本或存量运行引用时会被后端拒绝；请先在 Agent 中显式解绑。',
       okText: '删除',
       okButtonProps: { danger: true },
@@ -288,20 +288,20 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
         queryClient.invalidateQueries({ queryKey: ['skill-health'] });
         queryClient.invalidateQueries({ queryKey: ['agents'] });
         queryClient.invalidateQueries({ queryKey: ['agent-preflight'] });
-        message.success('能力包已删除');
+        message.success('Skill 已删除');
       },
     });
   };
 
   const assetActionItems: MenuProps['items'] = [
-    { key: 'import', label: '导入能力包' },
+    { key: 'import', label: '导入 Skill' },
   ];
 
   return (
     <>
-      <div className="asset-workflow-strip skill-workflow-strip" aria-label="能力包概览">
+      <div className="asset-workflow-strip skill-workflow-strip" aria-label="Skill overview">
         <div>
-          <span>能力包资产</span>
+          <span>Skills</span>
           <strong>{governanceMetrics.totalSkills}</strong>
           <em>可复用资产</em>
         </div>
@@ -311,7 +311,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
           <em>可被 Agent 绑定</em>
         </div>
         <div>
-          <span>允许工具</span>
+          <span>Skill allowed tools</span>
           <strong>{governanceMetrics.totalTools}</strong>
           <em>授权引用</em>
         </div>
@@ -329,32 +329,32 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       <div className="skill-workbench-grid">
         <PageSurface
           className="skill-policy-surface"
-          title="能力包治理边界"
-          description="执行规范、允许工具、运行预览、版本记录和影响范围共同决定一个能力包 是否可进入生产。"
+          title="Skill 治理边界"
+          description="执行规范、Skill allowed tools、Runtime Preview、版本记录和影响范围共同决定一个 Skill 是否可进入生产。"
         >
           <div className="skill-policy-list">
             <div>
               <Brain size={16} />
-              <span>{governanceMetrics.activeSkills}/{governanceMetrics.totalSkills} 个 能力包可用，平均检查分 {skillHealth.isLoading ? '-' : governanceMetrics.avgScore}。</span>
+              <span>{governanceMetrics.activeSkills}/{governanceMetrics.totalSkills} 个 Skill 可用，平均检查分 {skillHealth.isLoading ? '-' : governanceMetrics.avgScore}。</span>
             </div>
             <div>
               <Wrench size={16} />
-              <span>{governanceMetrics.totalTools} 个允许工具会进入 Agent 运行配置和上线检查。</span>
+              <span>{governanceMetrics.totalTools} 个 Skill allowed tools 会进入 Agent Runtime 配置和上线检查。</span>
             </div>
             <div>
               <PackageCheck size={16} />
-              <span>{governanceMetrics.publishedBindings} 个已上线 Agent 引用能力包，修改后需要重新评估影响。</span>
+              <span>{governanceMetrics.publishedBindings} 个已上线 Agent 引用 Skill，修改后需要重新评估影响。</span>
             </div>
           </div>
         </PageSurface>
 
         <PageSurface
           className="skill-risk-surface"
-            title="待处理能力包"
+            title="待处理 Skills"
           description="只展示需要处理的上线检查和线上影响；日常治理以台账为主。"
         >
           {skillHealth.isLoading ? (
-            <div className="mini-empty">正在加载 能力包上线检查状态...</div>
+            <div className="mini-empty">正在加载 Skill 上线检查状态...</div>
           ) : riskItems.length > 0 ? (
             <div className="skill-risk-list">
               {riskItems.map((item) => {
@@ -390,7 +390,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             <div className="skill-empty-state">
               <ShieldAlert size={18} />
               <strong>当前没有待处理风险</strong>
-              <span>所有能力包已具备上线前要求的基础检查状态。</span>
+              <span>所有 Skills 已具备上线前要求的基础检查状态。</span>
             </div>
           )}
         </PageSurface>
@@ -399,8 +399,8 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       <PageSurface className="skill-asset-console">
         <div className="skill-console-head">
           <div>
-            <span>能力包资产台</span>
-            <strong>说明书、允许工具、影响范围和版本治理在同一处判断。</strong>
+            <span>Skill Registry</span>
+            <strong>说明书、Skill allowed tools、影响范围和版本治理在同一处判断。</strong>
           </div>
           <Space>
             <Dropdown
@@ -415,14 +415,14 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
               <Button icon={<MoreHorizontal size={14} />}>更多</Button>
             </Dropdown>
             <Button type="primary" icon={<Plus size={16} />} onClick={() => openSkill()}>
-              新建能力包
+              新建 Skill
             </Button>
           </Space>
         </div>
 
         <div className="skill-console-grid">
-          <section className="skill-ledger-panel" aria-label="能力包清单">
-            {skills.isLoading && <div className="mini-empty">正在加载 能力包资产...</div>}
+          <section className="skill-ledger-panel" aria-label="Skill list">
+            {skills.isLoading && <div className="mini-empty">正在加载 Skill 资产...</div>}
             {!skills.isLoading && skillsData.map((record) => {
               const health = skillHealthById[record.id];
               const active = selectedSkill?.id === record.id;
@@ -444,7 +444,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                   </div>
                   <div className="skill-ledger-meta">
                     <span>v{record.version}</span>
-                    <span>{record.allowed_tools.length} 工具</span>
+                    <span>{record.allowed_tools.length} Tools</span>
                     <span>{health ? `${health.bound_agents} Agent` : '检查中'}</span>
                     <span>{formatDate(record.updated_at)}</span>
                   </div>
@@ -457,13 +457,13 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             {!skills.isLoading && !skillsData.length && (
               <div className="skill-empty-state">
                 <Brain size={18} />
-                <strong>还没有能力包</strong>
-                <span>创建第一个能力包，把可复用的执行规范沉淀为 Agent 可绑定资产。</span>
+                <strong>还没有 Skill</strong>
+                <span>创建第一个 Skill，把可复用的执行规范沉淀为 Agent 可绑定资产。</span>
               </div>
             )}
           </section>
 
-          <aside className="skill-inspector-panel" aria-label="能力包详情">
+          <aside className="skill-inspector-panel" aria-label="Skill detail">
             {selectedSkill ? (
               <>
                 <div className="skill-inspector-head">
@@ -480,7 +480,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                     trigger={['click']}
                     menu={{
                       items: [
-                        { key: 'import', label: '导入能力包' },
+                        { key: 'import', label: '导入 Skill' },
                         { key: 'delete', label: '删除', danger: true },
                       ] satisfies MenuProps['items'],
                       onClick: ({ key }) => {
@@ -528,7 +528,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                 <section className="skill-inspector-section">
                   <div className="skill-section-title">
                     <Wrench size={15} />
-                    <span>允许工具</span>
+                    <span>Skill allowed tools</span>
                     <strong>{selectedSkill.allowed_tools.length}</strong>
                   </div>
                   {selectedSkill.allowed_tools.length ? (
@@ -538,7 +538,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="mini-empty compact">不绑定工具，仅提供执行规范。</div>
+                    <div className="mini-empty compact">不绑定 Tools，仅提供执行规范。</div>
                   )}
                 </section>
 
@@ -558,21 +558,21 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             ) : (
               <div className="skill-empty-state">
                 <Brain size={18} />
-                <strong>选择一个能力包</strong>
-                <span>查看运行预览、允许工具和线上影响。</span>
+                <strong>选择一个 Skill</strong>
+                <span>查看 Runtime Preview、Skill allowed tools 和线上影响。</span>
               </div>
             )}
           </aside>
         </div>
       </PageSurface>
 
-      <Drawer title={editingSkill ? '编辑能力包' : '新建能力包'} width={760} open={skillOpen} onClose={() => setSkillOpen(false)}>
+      <Drawer title={editingSkill ? '编辑 Skill' : '新建 Skill'} width={760} open={skillOpen} onClose={() => setSkillOpen(false)}>
         <Form form={skillForm} layout="vertical" onFinish={(values) => saveSkill.mutate(values)}>
           <div className="drawer-section-grid">
             <section>
               <h3>基本信息</h3>
               <Space.Compact block>
-                <Form.Item name="name" label="能力包标识" className="compact-field" rules={[{ required: true }]}>
+                <Form.Item name="name" label="Skill 标识" className="compact-field" rules={[{ required: true }]}>
                   <Input disabled={Boolean(editingSkill)} placeholder="structured-planning" />
                 </Form.Item>
                 <Form.Item name="display_name" label="显示名称" className="compact-field" rules={[{ required: true }]}>
@@ -588,8 +588,8 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             </section>
 
             <section>
-              <h3>允许工具</h3>
-              <Form.Item name="allowed_tools" label="允许工具">
+              <h3>Skill allowed tools</h3>
+              <Form.Item name="allowed_tools" label="Skill allowed tools">
                 <Select mode="multiple" options={toolOptions} />
               </Form.Item>
             </section>
@@ -608,7 +608,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                   key: 'metadata',
                   label: '技术详情',
                   children: (
-                    <Form.Item label="能力包元数据 JSON">
+                    <Form.Item label="Skill metadata JSON">
                       <Input.TextArea
                         className="json-textarea"
                         rows={5}
@@ -623,13 +623,13 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             />
           </div>
           <div className="drawer-sticky-actions">
-            <Button type="primary" htmlType="submit" loading={saveSkill.isPending}>保存能力包</Button>
+            <Button type="primary" htmlType="submit" loading={saveSkill.isPending}>保存 Skill</Button>
           </div>
         </Form>
       </Drawer>
 
       <Drawer
-        title={versioningSkill ? `能力包版本 · ${versioningSkill.display_name || versioningSkill.name}` : '能力包版本'}
+        title={versioningSkill ? `Skill 版本 · ${versioningSkill.display_name || versioningSkill.name}` : 'Skill 版本'}
         width={820}
         open={skillVersionOpen}
         onClose={() => setSkillVersionOpen(false)}
@@ -661,7 +661,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                 { title: '版本', dataIndex: 'version', width: 90, render: (value) => <Tag>v{value}</Tag> },
                 { title: '名称', dataIndex: 'display_name' },
                 {
-                  title: '允许工具',
+                  title: 'Skill allowed tools',
                   dataIndex: 'allowed_tools',
                   render: (value: string[]) => <Space wrap>{(value || []).map((item) => <Tag key={item}>{item}</Tag>)}</Space>,
                 },
@@ -715,7 +715,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       </Drawer>
 
       <Drawer
-        title={skillRuntimePreview ? `能力包运行预览 · ${skillRuntimePreview.name}` : '能力包运行预览'}
+        title={skillRuntimePreview ? `Skill Runtime Preview · ${skillRuntimePreview.name}` : 'Skill Runtime Preview'}
         width={820}
         open={Boolean(skillRuntimePreview)}
         onClose={() => setSkillRuntimePreview(null)}
@@ -728,7 +728,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
               </div>
             )}
             <section>
-              <h3>允许工具</h3>
+              <h3>Skill allowed tools</h3>
               {renderRuntimeResources(skillRuntimePreview.allowed_tools)}
               {(skillRuntimePreview.missing_tools.length > 0 || skillRuntimePreview.inactive_tools.length > 0) && (
                 <Space wrap>
@@ -740,9 +740,9 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             <section>
               <h3>运行配置检查</h3>
               <div className="kv-list">
-                <div><span>允许工具</span><strong>{skillRuntimePreview.allowed_tools.length}</strong></div>
-                <div><span>缺失工具</span><strong>{skillRuntimePreview.missing_tools.length}</strong></div>
-                <div><span>未启用工具</span><strong>{skillRuntimePreview.inactive_tools.length}</strong></div>
+                <div><span>Skill allowed tools</span><strong>{skillRuntimePreview.allowed_tools.length}</strong></div>
+                <div><span>缺失 Tools</span><strong>{skillRuntimePreview.missing_tools.length}</strong></div>
+                <div><span>未启用 Tools</span><strong>{skillRuntimePreview.inactive_tools.length}</strong></div>
               </div>
               <Collapse
                 className="advanced-collapse"
@@ -760,7 +760,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
       </Drawer>
 
       <Drawer
-        title={skillImpact ? `能力包影响分析 · ${skillImpact.skill_name}` : '能力包影响分析'}
+        title={skillImpact ? `Skill 影响分析 · ${skillImpact.skill_name}` : 'Skill 影响分析'}
         width={720}
         open={Boolean(skillImpact)}
         onClose={() => setSkillImpact(null)}
@@ -793,15 +793,15 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                 },
               ]}
             />
-            {skillImpact.bindings.length === 0 && <div className="mini-empty">当前没有 Agent 绑定这个能力包。</div>}
+            {skillImpact.bindings.length === 0 && <div className="mini-empty">当前没有 Agent 绑定这个 Skill。</div>}
           </div>
         )}
       </Drawer>
 
-      <Drawer title="导入能力包" width={760} open={skillImportOpen} onClose={() => setSkillImportOpen(false)}>
+      <Drawer title="导入 Skill" width={760} open={skillImportOpen} onClose={() => setSkillImportOpen(false)}>
         <Form form={skillImportForm} layout="vertical" onFinish={(values) => importSkill.mutate(values)}>
           <Space.Compact block>
-            <Form.Item name="overwrite" label="覆盖同名能力包" valuePropName="checked" className="compact-field">
+            <Form.Item name="overwrite" label="覆盖同名 Skill" valuePropName="checked" className="compact-field">
               <Switch />
             </Form.Item>
             <Form.Item name="preserve_id" label="保留原 ID" valuePropName="checked" className="compact-field">
@@ -819,7 +819,7 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
                 key: 'package',
                 label: '查看或编辑导入包 JSON',
                 children: (
-                  <Form.Item label="能力包导入原文">
+                  <Form.Item label="Skill 导入原文">
                     <Input.TextArea
                       className="json-textarea"
                       rows={12}
@@ -835,13 +835,13 @@ export function SkillManagement({ toolOptions }: SkillManagementProps) {
             <Button onClick={() => previewSkillImport.mutate(skillImportForm.getFieldsValue())} loading={previewSkillImport.isPending}>
               导入检查
             </Button>
-            <Button type="primary" htmlType="submit" loading={importSkill.isPending}>导入能力包</Button>
+            <Button type="primary" htmlType="submit" loading={importSkill.isPending}>导入 Skill</Button>
           </Space>
           {skillImportPreview && (
             <section className="diff-section">
               <h3>导入检查 · {skillImportPreview.name}</h3>
               <div className="kv-list">
-                <div><span>处理方式</span><strong>{skillImportPreview.action === 'overwrite' ? '覆盖同名能力包' : '创建新能力包'}</strong></div>
+                <div><span>处理方式</span><strong>{skillImportPreview.action === 'overwrite' ? '覆盖同名 Skill' : '创建新 Skill'}</strong></div>
                 <div><span>导入版本</span><strong>v{skillImportPreview.incoming_version}</strong></div>
                 <div><span>历史版本</span><strong>{skillImportPreview.imported_versions}</strong></div>
               </div>

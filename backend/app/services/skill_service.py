@@ -176,7 +176,7 @@ def validate_allowed_tools(
     org_id: str,
     actor_role: str,
 ) -> None:
-    validate_tool_bindings(session, tool_ids, org_id, actor_role, label="能力")
+    validate_tool_bindings(session, tool_ids, org_id, actor_role, label="Skill")
 
 
 def preview_skill_import(session: Session, package: dict, org_id: str = "org_default") -> SkillImportPreviewRead:
@@ -189,9 +189,9 @@ def preview_skill_import(session: Session, package: dict, org_id: str = "org_def
     changes = _skill_changes(existing, skill_data) if existing else []
     warnings: list[str] = []
     if missing_tools:
-        warnings.append("导入包引用了未注册工具。")
+        warnings.append("导入包引用了未注册 Tools。")
     if inactive_tools:
-        warnings.append("导入包引用了未启用工具。")
+        warnings.append("导入包引用了未启用 Tools。")
     if existing:
         warnings.append("导入会覆盖同名能力，建议先确认影响分析。")
     return SkillImportPreviewRead(
@@ -282,9 +282,9 @@ def skill_runtime_preview(session: Session, skill: Skill) -> SkillRuntimePreview
     inactive_tools = [row.id for row in tool_rows if row.status != "active"]
     warnings: list[str] = []
     if missing_tools:
-        warnings.append("能力包引用了未注册的工具，运行时不会获得这些工具。")
+        warnings.append("Skill 引用了未注册的 Tools，Runtime 不会获得这些 Tools。")
     if inactive_tools:
-        warnings.append("能力包引用了未启用的工具，运行时会跳过这些工具。")
+        warnings.append("Skill 引用了未启用的 Tools，Runtime 会跳过这些 Tools。")
     if not skill.instructions.strip():
         warnings.append("执行规范为空，运行时不会提供有效行为指导。")
     return SkillRuntimePreviewRead(

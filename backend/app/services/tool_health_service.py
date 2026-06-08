@@ -20,7 +20,7 @@ def build_tool_health(tool_def: ToolDefinition, session: Session, org_id: str | 
             label="启用状态",
             passed=tool_def.status == "active",
             severity="blocker",
-            detail="工具必须启用才会进入 Agent 运行时。",
+            detail="Tool 必须启用才会进入 Agent Runtime。",
             evidence={"status": tool_def.status},
         ),
         _configuration_check(tool_def),
@@ -60,7 +60,7 @@ def _configuration_check(tool_def: ToolDefinition) -> ToolHealthCheckRead:
             label="配置结构",
             passed=True,
             severity="blocker",
-            detail="工具配置可被运行时构建。",
+            detail="Tool 配置可被 Runtime 构建。",
             evidence={"implementation": tool_def.implementation},
         )
     except ValueError as exc:
@@ -91,7 +91,7 @@ def _access_policy_check(tool_def: ToolDefinition) -> ToolHealthCheckRead:
             label="调用权限",
             passed=True,
             severity="info",
-            detail=f"工具调用至少需要 {required_role} 角色。",
+            detail=f"Tool 调用至少需要 {required_role} 角色。",
         evidence={"required_role": required_role},
     )
 
@@ -124,7 +124,7 @@ def _egress_check(tool_def: ToolDefinition) -> ToolHealthCheckRead:
             label="访问边界",
             passed=True,
             severity="info",
-            detail="内置工具不需要外部访问边界。",
+            detail="内置 Tool 不需要外部访问边界。",
             evidence={},
         )
     if tool_def.implementation == "mcp" and str(metadata.get("transport") or "http") == "stdio":
@@ -169,7 +169,7 @@ def _last_invocation_check(last_audit: ToolInvocationAudit | None) -> ToolHealth
             label="最近连通测试",
             passed=False,
             severity="warning",
-            detail="尚无工具连通测试证据，建议至少验证一次。",
+            detail="尚无 Tool 连通测试证据，建议至少验证一次。",
             evidence={},
         )
     return ToolHealthCheckRead(
@@ -177,7 +177,7 @@ def _last_invocation_check(last_audit: ToolInvocationAudit | None) -> ToolHealth
         label="最近连通测试",
         passed=last_audit.status == "success",
         severity="warning",
-        detail="最近一次运行成功。" if last_audit.status == "success" else "最近一次运行失败，请查看工具运行证据。",
+        detail="最近一次运行成功。" if last_audit.status == "success" else "最近一次运行失败，请查看 Tool Evidence。",
         evidence={
             "status": last_audit.status,
             "created_at": last_audit.created_at,
@@ -207,17 +207,17 @@ def _secret_refs(tool_def: ToolDefinition) -> dict[str, str]:
 
 def _egress_detail(reason: str, allow_private_networks: bool) -> str:
     if reason == "allowed" and allow_private_networks:
-        return "目标已通过平台与工具策略校验，但允许私有网络访问，请确认属于受控内网工具。"
+        return "目标已通过平台与 Tool 策略校验，但允许私有网络访问，请确认属于受控内网 Tool。"
     if reason == "allowed":
-        return "目标已通过平台全局策略与工具 allowed_hosts 校验。"
+        return "目标已通过平台全局策略与 Tool allowed_hosts 校验。"
     messages = {
         "missing_host": "出站 URL 缺少 host。",
         "global_blocked_host": "平台全局 blocked_hosts 拒绝该目标。",
-        "tool_blocked_host": "工具 blocked_hosts 拒绝该目标。",
+        "tool_blocked_host": "Tool blocked_hosts 拒绝该目标。",
         "global_allowed_hosts_miss": "平台全局 allowed_hosts 未包含该目标。",
-        "tool_allowed_hosts_miss": "工具 allowed_hosts 未包含该目标。",
-        "global_localhost_denied": "平台全局策略禁止访问本机地址，工具级配置不能绕过。",
-        "global_private_network_denied": "平台全局策略禁止访问私有网络，工具级配置不能绕过。",
-        "tool_private_network_denied": "工具未允许访问私有网络。",
+        "tool_allowed_hosts_miss": "Tool allowed_hosts 未包含该目标。",
+        "global_localhost_denied": "平台全局策略禁止访问本机地址，Tool 级配置不能绕过。",
+        "global_private_network_denied": "平台全局策略禁止访问私有网络，Tool 级配置不能绕过。",
+        "tool_private_network_denied": "Tool 未允许访问私有网络。",
     }
     return messages.get(reason, f"访问边界拒绝该目标: {reason}")

@@ -135,9 +135,9 @@ class AgentExecutionService:
 
         manifest = runtime_context.runtime_manifest
         resource_issues = [
-            *[f"缺失工具 {item}" for item in manifest.missing_tools],
-            *[f"缺失能力 {item}" for item in manifest.missing_skills],
-            *[f"未启用工具 {item}" for item in manifest.inactive_tools],
+            *[f"缺失 Tool {item}" for item in manifest.missing_tools],
+            *[f"缺失 Skill {item}" for item in manifest.missing_skills],
+            *[f"未启用 Tool {item}" for item in manifest.inactive_tools],
             *[f"未启用 Skill {item}" for item in manifest.inactive_skills],
         ]
         if resource_issues:

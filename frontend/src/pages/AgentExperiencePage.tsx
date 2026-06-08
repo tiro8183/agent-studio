@@ -55,7 +55,7 @@ export default function AgentExperiencePage({ currentUser }: WorkspacePageContex
   const selectedProfile = selectedEntry ? serviceProfile(selectedEntry) : null;
   const experienceSession = useAgentExperienceSession({ selectedAgent, messageApi: message });
   const canCreateAgent = canAtLeast(currentUser?.membership.role, 'editor');
-  const canViewIntegration = canAtLeast(currentUser?.membership.role, 'editor');
+  const canViewIntegration = canAtLeast(currentUser?.membership.role, 'viewer');
   const experienceFacts = selectedProfile
     ? [
       { label: '上线版本', value: selectedProfile.versionLabel },
@@ -100,9 +100,9 @@ export default function AgentExperiencePage({ currentUser }: WorkspacePageContex
     <WorkspacePage
       className="agent-experience-page service-workspace-page experience-workbench-page"
       icon={<PlayCircle size={14} />}
-      eyebrow="体验台"
-      title="验证一次真实业务任务"
-      description="选择已上线 Agent，用真实业务材料提交一次可留痕运行；内部页面和外部接入走同一套 /v1/responses 协议。"
+      eyebrow="运营"
+      title="体验验证"
+      description="选择已上线 Agent，用真实业务材料提交一次可留痕运行；页面验证和外部系统调用走同一套 `POST /v1/responses` 协议。"
     >
       <section className="experience-console">
         <aside className="experience-service-rail">
@@ -171,7 +171,7 @@ export default function AgentExperiencePage({ currentUser }: WorkspacePageContex
                   <div>
                     <Braces size={14} />
                     <span>执行协议</span>
-                    <strong>/v1/responses</strong>
+                    <strong>POST /v1/responses</strong>
                   </div>
                   <div>
                     <Copy size={14} />
@@ -311,7 +311,7 @@ export default function AgentExperiencePage({ currentUser }: WorkspacePageContex
               <div className="experience-boundary-list">
                 <div><span>处理方式</span><strong>{selectedProfile.actionScope}</strong></div>
                 <div><span>支持方式</span><strong>{selectedProfile.sla}</strong></div>
-                <div><span>执行入口</span><strong>/v1/responses</strong></div>
+                <div><span>执行入口</span><strong>POST /v1/responses</strong></div>
               </div>
             </section>
             <section className="experience-side-section">
@@ -338,9 +338,9 @@ export default function AgentExperiencePage({ currentUser }: WorkspacePageContex
             </section>
             {canViewIntegration && (
               <details className="experience-technical-details">
-                <summary>接入信息</summary>
+                <summary>API 接入信息</summary>
                 <div className="experience-evidence-strip">
-                  <div><span>标准入口</span><strong>/v1/responses</strong></div>
+                  <div><span>标准入口</span><strong>POST /v1/responses</strong></div>
                   <div><span>model 字段</span><strong>{experienceSession.currentRunModel}</strong></div>
                   <div><span>上线版本</span><strong>{selectedProfile.versionLabel}</strong></div>
                 </div>
