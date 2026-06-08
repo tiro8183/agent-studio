@@ -98,7 +98,7 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="runtime_configuration",
             group="runtime",
-            label="运行时配置",
+            label="Runtime 配置",
             passed=_runtime_configuration_ready(agent),
             severity="blocker",
             detail=_runtime_configuration_detail(agent),
@@ -112,10 +112,10 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="runtime_manifest_guard",
             group="runtime",
-            label="运行清单一致性",
+            label="Runtime Manifest 一致性",
             passed=guard_issue is None,
             severity="blocker",
-            detail="Manifest 与编译计划一致。" if guard_issue is None else "Manifest 与编译计划不一致，执行会被阻断。",
+            detail="Runtime Manifest 与编译计划一致。" if guard_issue is None else "Runtime Manifest 与编译计划不一致，执行会被阻断。",
             evidence={
                 "manifest_hash": runtime_plan.manifest_hash,
                 "guard_error": guard_issue or "",
@@ -206,10 +206,10 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="capabilities",
             group="resources",
-            label="运行能力",
+            label="Runtime Composition",
             passed=configured_capabilities > 0,
             severity="blocker",
-            detail="至少配置工具、能力包或协作角色中的一种运行依赖。",
+            detail="至少配置 Tool、Skill 或 Subagent 中的一种运行依赖。",
             evidence={
                 "tools": len(agent_read.tools),
                 "skills": len(agent_read.skills),
@@ -219,10 +219,10 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="runtime_resources",
             group="resources",
-            label="运行时资源",
+            label="Runtime Resources",
             passed=not resource_errors and not unhealthy_tools and not unhealthy_skills,
             severity="blocker",
-            detail="资源可用。" if not resource_errors and not unhealthy_tools and not unhealthy_skills else "存在缺失、未启用或上线检查未通过的运行时资源。",
+            detail="Runtime resources 可用。" if not resource_errors and not unhealthy_tools and not unhealthy_skills else "存在缺失、未启用或上线检查未通过的 Runtime resources。",
             evidence={
                 "missing_tools": runtime_manifest.missing_tools,
                 "missing_skills": runtime_manifest.missing_skills,
@@ -250,10 +250,10 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="tool_health",
             group="resources",
-            label="工具上线检查",
+            label="Tool 上线检查",
             passed=not unhealthy_tools,
             severity="blocker",
-            detail="绑定工具上线检查通过。" if not unhealthy_tools else f"{len(unhealthy_tools)} 个绑定工具存在未通过项。",
+            detail="绑定 Tool 上线检查通过。" if not unhealthy_tools else f"{len(unhealthy_tools)} 个绑定 Tool 存在未通过项。",
             evidence={
                 "tools": [
                     {
@@ -271,10 +271,10 @@ def build_agent_preflight(agent: Agent, session: Session) -> AgentPreflightRead:
         AgentPreflightCheckRead(
             key="skill_health",
             group="resources",
-            label="能力包上线检查",
+            label="Skill 上线检查",
             passed=not unhealthy_skills,
             severity="blocker",
-            detail="绑定能力包上线检查通过。" if not unhealthy_skills else f"{len(unhealthy_skills)} 个绑定能力包存在未通过项。",
+            detail="绑定 Skill 上线检查通过。" if not unhealthy_skills else f"{len(unhealthy_skills)} 个绑定 Skill 存在未通过项。",
             evidence={
                 "skills": [
                     {

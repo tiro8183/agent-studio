@@ -4,7 +4,7 @@ interface BrandLogoProps {
 
 export function BrandLogo({ size = 'regular' }: BrandLogoProps) {
   return (
-    <div className={`brand-logo ${size === 'compact' ? 'compact' : ''}`} aria-label="Agent Studio">
+    <div className={`brand-logo ${size === 'compact' ? 'compact' : ''}`} aria-label="Agent Forge">
       <svg viewBox="0 0 48 48" focusable="false">
         <rect className="logo-frame" x="5.5" y="5.5" width="37" height="37" rx="7" />
         <path className="logo-axis" d="M15.4 17.8h17.2M15.4 30.2h17.2" />

@@ -3,7 +3,8 @@
 
 /*
  * Agent Studio design system — modern light SaaS.
- * Brand: teal (#0f6f62) on warm-white. Token structure follows shadcn/ui.
+ * Brand: blue (#2563eb) on cool slate-white. Token structure follows shadcn/ui.
+ * Palette aligned with the platform's Ant Design theme for cross-page coherence.
  */
 
 @theme inline {
@@ -50,48 +51,48 @@
 :root {
   --radius: 0.625rem;
 
-  --background: #fafaf8;
-  --foreground: #1a1c19;
+  --background: #f8fafc;
+  --foreground: #172033;
 
   --card: #ffffff;
-  --card-foreground: #1a1c19;
+  --card-foreground: #172033;
 
   --popover: #ffffff;
-  --popover-foreground: #1a1c19;
+  --popover-foreground: #172033;
 
-  --primary: #0f6f62;
-  --primary-foreground: #f4fbf9;
+  --primary: #2563eb;
+  --primary-foreground: #f7faff;
 
-  --secondary: #f1f2ee;
-  --secondary-foreground: #2c2e29;
+  --secondary: #eef2f7;
+  --secondary-foreground: #334155;
 
-  --muted: #f4f4f1;
-  --muted-foreground: #6b6d64;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
 
-  --accent: #e6f1ee;
-  --accent-foreground: #0c5a4f;
+  --accent: #e7f0fe;
+  --accent-foreground: #1d4ed8;
 
-  --destructive: #c2392b;
-  --destructive-foreground: #fef2f1;
+  --destructive: #dc2626;
+  --destructive-foreground: #fef2f2;
 
-  --success: #157f3c;
-  --success-foreground: #f0fbf3;
+  --success: #15803d;
+  --success-foreground: #f0fdf4;
 
-  --warning: #b06f12;
-  --warning-foreground: #fdf6ec;
+  --warning: #b45309;
+  --warning-foreground: #fffbeb;
 
-  --info: #45598c;
-  --info-foreground: #f1f4fb;
+  --info: #0369a1;
+  --info-foreground: #f0f9ff;
 
-  --border: #e7e6e0;
-  --input: #e1e0d9;
-  --ring: #0f6f62;
+  --border: #e2e8f0;
+  --input: #d8e0ea;
+  --ring: #2563eb;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #1a1c19;
-  --sidebar-accent: #e6f1ee;
-  --sidebar-accent-foreground: #0c5a4f;
-  --sidebar-border: #ebeae4;
+  --sidebar-foreground: #172033;
+  --sidebar-accent: #e7f0fe;
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: #eef2f7;
 }
 
 @layer base {

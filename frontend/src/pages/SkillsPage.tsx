@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tag } from 'antd';
 import { AlertTriangle, Brain, GitBranch, PackageCheck, ShieldCheck, Wrench } from 'lucide-react';
-import { WorkspacePage } from '../components/ui';
+import { WorkspaceIssueList, WorkspaceMetricGrid, WorkspacePage } from '../components/ui';
 import { api } from '../services/api';
+import { workspaceApi } from '../services/workspaceApi';
 import { summarizeSkillGovernance } from './assetGovernanceModel';
 import { SkillManagement } from './admin/SkillManagement';
 
@@ -11,6 +12,7 @@ export default function SkillsPage() {
   const tools = useQuery({ queryKey: ['tools'], queryFn: api.listTools });
   const skills = useQuery({ queryKey: ['skills'], queryFn: api.listSkills });
   const skillHealth = useQuery({ queryKey: ['skill-health'], queryFn: api.listSkillsHealth });
+  const workspace = useQuery({ queryKey: ['workspace', 'asset-governance'], queryFn: workspaceApi.assetGovernance });
   const toolOptions = useMemo(
     () => (tools.data || []).map((item) => ({
       value: item.id,
@@ -26,11 +28,21 @@ export default function SkillsPage() {
   return (
     <WorkspacePage
       icon={<Brain size={14} />}
-      eyebrow="能力包资产"
-      title="能力包资产"
-      description="治理可复用的执行规范、允许工具、版本记录和线上影响，确保进入 Agent 后行为一致。"
+      eyebrow="资产治理"
+      title="Skills"
+      description="治理可复用的 Skill 指令、allowed tools、版本记录和线上影响，确保进入 Agent Runtime 后行为一致。"
     >
-      <section className="asset-ledger governance-ledger" aria-label="能力包资产治理状态">
+      <section className="surface page-surface asset-workspace-summary">
+        <div className="surface-header">
+          <div>
+            <h2>Skill 治理状态</h2>
+            <p>后端统一返回 Skill allowed tools、Runtime 影响范围与治理风险，前端不再自行复算运行真相。</p>
+          </div>
+        </div>
+        <WorkspaceMetricGrid items={workspace.data?.metrics || []} />
+        <WorkspaceIssueList items={(workspace.data?.issues || []).filter((item) => item.key.startsWith('skill:'))} emptyLabel="当前没有 Skill 未通过项。" />
+      </section>
+      <section className="asset-ledger governance-ledger" aria-label="Skill governance state">
         <span className={`asset-ledger-badge ${summary.tone}`}>{summary.label}</span>
           <div className={summary.blockers ? 'danger' : summary.warnings ? 'warning' : 'ready'}>
             {summary.blockers ? <AlertTriangle size={15} /> : <ShieldCheck size={15} />}
@@ -52,13 +64,13 @@ export default function SkillsPage() {
           </div>
           <div>
             <Wrench size={15} />
-            <span>允许工具</span>
+            <span>Skill allowed tools</span>
             <strong>{summary.allowedActions}</strong>
-            <em>允许工具引用</em>
+            <em>allowed tool refs</em>
           </div>
         <footer>
           <Tag>执行规范</Tag>
-          <Tag>允许工具</Tag>
+          <Tag>Skill allowed tools</Tag>
           <Tag>运行预览</Tag>
           <Tag>版本记录</Tag>
           <Tag>影响范围</Tag>

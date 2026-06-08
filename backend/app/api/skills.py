@@ -177,7 +177,7 @@ def restore_version(
         )
     ).first()
     if not version_row:
-        raise HTTPException(status_code=404, detail="能力版本不存在")
+        raise HTTPException(status_code=404, detail="Skill 版本不存在")
     try:
         validate_allowed_tools(
             session,
@@ -206,7 +206,7 @@ def version_diff(
         )
     ).first()
     if not version_row:
-        raise HTTPException(status_code=404, detail="能力版本不存在")
+        raise HTTPException(status_code=404, detail="Skill 版本不存在")
     return diff_skill_version(session, row, version_row)
 
 
@@ -229,7 +229,7 @@ def create_skill(
     org_id = context.organization.id
     existing = session.exec(select(Skill).where(Skill.name == payload.name, Skill.org_id == org_id)).first()
     if existing:
-        raise HTTPException(status_code=409, detail="能力名称已存在")
+        raise HTTPException(status_code=409, detail="Skill 名称已存在")
     try:
         validate_allowed_tools(session, payload.allowed_tools, org_id, context.membership.role)
     except ValueError as exc:

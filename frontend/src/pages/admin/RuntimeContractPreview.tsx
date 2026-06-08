@@ -80,7 +80,7 @@ export function RuntimeContractPreview({
     <div className="runtime-contract-preview">
       <div className="builder-section-title">
         <span>后端 Runtime Manifest</span>
-        <p>展示后端编译后的运行真相；工具、能力包和权限不在前端复算。</p>
+        <p>展示后端编译后的运行真相；Tools、Skills、Runtime Tools 和权限不在前端复算。</p>
       </div>
 
       {error && (
@@ -107,11 +107,11 @@ export function RuntimeContractPreview({
           <strong>{shortHash(manifestEnvelope?.manifest_hash)}</strong>
         </div>
         <div>
-          <span>Readiness</span>
-          <strong>{isReady ? 'ready' : 'blocked'}</strong>
+          <span>就绪状态</span>
+          <strong>{isReady ? '可上线' : '未通过'}</strong>
         </div>
         <div>
-          <span>Blockers</span>
+          <span>未通过项</span>
           <strong>{blockers.length}</strong>
         </div>
         <Tag color={manifestEnvelope?.source === 'preview' ? 'gold' : manifestEnvelope?.source === 'release' ? 'green' : 'blue'}>
@@ -129,7 +129,7 @@ export function RuntimeContractPreview({
           <strong>{modelContracts.length || (routeModel ? 1 : 0)}</strong>
         </div>
         <div>
-          <span>工具</span>
+          <span>Runtime Tools</span>
           <strong>{runtimeManifest.main_tools.length}</strong>
         </div>
         <div>
@@ -177,7 +177,7 @@ export function RuntimeContractPreview({
             </div>
             <div>
               <strong>{runtimeManifest.memory.length}</strong>
-              <span>服务记忆</span>
+              <span>Memory</span>
             </div>
             <div>
               <strong>{runtimeManifest.knowledge.length}</strong>
@@ -239,24 +239,24 @@ export function RuntimeContractPreview({
 
         <section className="contract-section wide">
           <div className="contract-section-head">
-            <span>允许工具</span>
+            <span>Runtime Tools</span>
             <strong>{runtimeManifest.main_tools.length} 项</strong>
           </div>
-          {renderResourceChips(runtimeManifest.main_tools, '未绑定工具')}
+          {renderResourceChips(runtimeManifest.main_tools, '未生成 Runtime Tools')}
         </section>
 
         <section className="contract-section wide">
           <div className="contract-section-head">
-            <span>能力包与服务记忆</span>
+            <span>Skills & Memory</span>
             <strong>{runtimeManifest.main_skills.length + runtimeManifest.memory.length} 项</strong>
           </div>
           <div className="contract-resource-columns">
             <div>
-              <label>能力包</label>
-              {renderResourceChips(runtimeManifest.main_skills, '未绑定能力包')}
+              <label>Skills</label>
+              {renderResourceChips(runtimeManifest.main_skills, '未绑定 Skills')}
             </div>
             <div>
-              <label>服务记忆</label>
+              <label>Memory</label>
               {runtimeManifest.memory.length ? (
                 <div className="contract-chip-list">
                   {runtimeManifest.memory.map((item: string) => (
@@ -286,13 +286,13 @@ export function RuntimeContractPreview({
                     <span>{subagent.model || '继承主模型'}</span>
                   </div>
                   <div>
-                    <label>工具</label>
-                    <span>{subagent.tools.length}</span>
-                  </div>
-                  <div>
-                    <label>能力包</label>
-                    <span>{subagent.skills.length}</span>
-                  </div>
+                <label>Tools</label>
+                <span>{subagent.tools.length}</span>
+              </div>
+              <div>
+                <label>Skills</label>
+                <span>{subagent.skills.length}</span>
+              </div>
                   <div>
                     <label>确认</label>
                     <span>{Object.keys(subagent.interrupt_on || {}).filter((key) => subagent.interrupt_on[key]).length}</span>
@@ -341,7 +341,7 @@ export function RuntimeContractPreview({
               ))}
             </div>
           ) : (
-            <p>主流程未配置强制确认点，上线前应确认高风险工具已有安全边界。</p>
+            <p>主流程未配置强制确认点，上线前应确认高风险 Tools 已有安全边界。</p>
           )}
         </section>
       </div>

@@ -163,9 +163,9 @@ export default function QualityPage() {
   return (
     <WorkspacePage
       icon={<FlaskConical size={14} />}
-      eyebrow="发布门禁"
+      eyebrow="构建"
       title="发布门禁"
-      description="用验收用例判断 Agent 是否可以上线，并把需要处理的问题集中到一个正式发布队列。"
+      description="用验收用例判断 Agent 是否可以生成 Release，并把需要处理的问题集中到正式发布队列。"
       actions={(
         <Space>
           <Button onClick={() => overview.refetch()} loading={overview.isFetching}>刷新</Button>

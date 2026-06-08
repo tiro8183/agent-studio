@@ -1354,5 +1354,129 @@ class SkillImportRequest(BaseModel):
     preserve_id: bool = False
 
 
+WorkspaceTone = Literal["ready", "warning", "blocked", "muted", "readonly", "loading"]
+
+
+class WorkspaceMetricRead(BaseModel):
+    key: str
+    label: str
+    value: str
+    detail: str = ""
+    status_tone: WorkspaceTone = "muted"
+
+
+class WorkspaceActionRead(BaseModel):
+    key: str
+    label: str
+    target: str = ""
+    disabled: bool = False
+    reason: str = ""
+
+
+class RuntimeSummaryRead(BaseModel):
+    manifest_hash: str = ""
+    source: Literal["draft", "preview", "release"] = "draft"
+    direct_tools: List[RuntimeResourceRead] = Field(default_factory=list)
+    skill_references: List[RuntimeResourceRead] = Field(default_factory=list)
+    skill_allowed_tools: List[RuntimeResourceRead] = Field(default_factory=list)
+    runtime_tools: List[RuntimeResourceRead] = Field(default_factory=list)
+    missing_tools: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    inactive_tools: List[str] = Field(default_factory=list)
+    inactive_skills: List[str] = Field(default_factory=list)
+
+
+class WorkspaceAgentSummaryRead(BaseModel):
+    id: str
+    name: str
+    slug: str = ""
+    description: str = ""
+    status: AgentLifecycleStatus = "unpublished"
+    status_tone: WorkspaceTone = "muted"
+    model: str = ""
+    version: int = 1
+    config_pending_publish: bool = False
+    runtime_summary: Optional[RuntimeSummaryRead] = None
+    next_action: str = ""
+    blockers: int = 0
+    warnings: int = 0
+    api_entrypoint: str = "POST /v1/responses"
+    contract_model: str = ""
+    integration_policy: str = ""
+    approval_status: str = ""
+    support_contact: str = ""
+    data_classification: str = ""
+    risk_level: str = ""
+    catalog_ready: bool = False
+    catalog_gaps: List[str] = Field(default_factory=list)
+    updated_at: str = ""
+
+
+class WorkspaceIssueRead(BaseModel):
+    key: str
+    label: str
+    detail: str = ""
+    severity: Literal["critical", "warning", "info"] = "info"
+    target: str = ""
+    resource_id: str = ""
+
+
+class CommandCenterRead(BaseModel):
+    organization_name: str
+    status_tone: WorkspaceTone
+    next_action: str
+    generated_at: str
+    metrics: List[WorkspaceMetricRead] = Field(default_factory=list)
+    actions: List[WorkspaceActionRead] = Field(default_factory=list)
+    priority_agents: List[WorkspaceAgentSummaryRead] = Field(default_factory=list)
+    issues: List[WorkspaceIssueRead] = Field(default_factory=list)
+
+
+class AgentStudioWorkspaceRead(BaseModel):
+    generated_at: str
+    agents: List[WorkspaceAgentSummaryRead] = Field(default_factory=list)
+    metrics: List[WorkspaceMetricRead] = Field(default_factory=list)
+    issues: List[WorkspaceIssueRead] = Field(default_factory=list)
+
+
+class AssetGovernanceItemRead(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    kind: Literal["model_provider", "tool", "skill"]
+    status: str = ""
+    status_tone: WorkspaceTone = "muted"
+    blockers: int = 0
+    warnings: int = 0
+    impact: Dict[str, Any] = Field(default_factory=dict)
+    runtime_summary: Optional[RuntimeSummaryRead] = None
+    next_action: str = ""
+    updated_at: str = ""
+
+
+class AssetGovernanceRead(BaseModel):
+    generated_at: str
+    metrics: List[WorkspaceMetricRead] = Field(default_factory=list)
+    providers: List[AssetGovernanceItemRead] = Field(default_factory=list)
+    tools: List[AssetGovernanceItemRead] = Field(default_factory=list)
+    skills: List[AssetGovernanceItemRead] = Field(default_factory=list)
+    issues: List[WorkspaceIssueRead] = Field(default_factory=list)
+
+
+class RunEvidenceWorkspaceRead(BaseModel):
+    generated_at: str
+    metrics: List[WorkspaceMetricRead] = Field(default_factory=list)
+    runs: List[AgentRunRead] = Field(default_factory=list)
+    issues: List[WorkspaceIssueRead] = Field(default_factory=list)
+
+
+class OperationsWorkspaceRead(BaseModel):
+    generated_at: str
+    status_tone: WorkspaceTone
+    next_action: str
+    metrics: List[WorkspaceMetricRead] = Field(default_factory=list)
+    issues: List[WorkspaceIssueRead] = Field(default_factory=list)
+
+
 class Envelope(BaseModel):
     data: Any

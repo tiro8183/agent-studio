@@ -294,15 +294,15 @@ def _warnings(
 ) -> list[str]:
     warnings: list[str] = []
     if missing_tools:
-        warnings.append("存在未注册的工具，运行时会跳过这些工具。")
+        warnings.append("存在未注册的 Tool，Runtime 会跳过这些 Tool。")
     if missing_skills:
-        warnings.append("存在未注册的能力包，运行时不会加载这些能力包。")
+        warnings.append("存在未注册的 Skill，Runtime 不会加载这些 Skill。")
     if inactive_tools:
-        warnings.append("存在未启用的工具，需要启用或解绑。")
+        warnings.append("存在未启用的 Tool，需要启用或解绑。")
     if inactive_skills:
-        warnings.append("存在未启用的能力包，需要启用或解绑。")
+        warnings.append("存在未启用的 Skill，需要启用或解绑。")
     if runtime.backend_type == "state" and (skill_count > 0 or not filesystem.enabled):
-        warnings.append("内存状态不适合依赖服务工作区或能力包来源的服务。")
+        warnings.append("内存状态不适合依赖服务工作区或 Skill source 的 Agent。")
     if runtime.checkpointing and runtime.backend_type == "state":
         warnings.append("开启检查点时建议使用服务工作区或状态库，以获得更完整的持久化行为。")
     if output.mode == "json_schema" and not output.json_schema:

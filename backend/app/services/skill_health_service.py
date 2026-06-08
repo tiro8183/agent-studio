@@ -20,7 +20,7 @@ def build_skill_health(skill: Skill, session: Session) -> SkillHealthRead:
             label="启用状态",
             passed=skill.status == "active",
             severity="blocker",
-            detail="能力包必须启用才会进入 Agent 运行时。",
+            detail="Skill 必须启用才会进入 Agent Runtime。",
             evidence={"status": skill.status},
         ),
         SkillHealthCheckRead(
@@ -33,10 +33,10 @@ def build_skill_health(skill: Skill, session: Session) -> SkillHealthRead:
         ),
         SkillHealthCheckRead(
             key="allowed_tools",
-            label="工具权限",
+            label="Skill allowed tools",
             passed=not preview.missing_tools and not preview.inactive_tools,
             severity="blocker",
-            detail="工具权限可用。" if not preview.missing_tools and not preview.inactive_tools else "存在缺失或未启用的工具权限。",
+            detail="Skill allowed tools 可用。" if not preview.missing_tools and not preview.inactive_tools else "存在缺失或未启用的 Tools。",
             evidence={
                 "allowed_tools": _loads(skill.allowed_tools_json, []),
                 "missing_tools": preview.missing_tools,
@@ -45,10 +45,10 @@ def build_skill_health(skill: Skill, session: Session) -> SkillHealthRead:
         ),
         SkillHealthCheckRead(
             key="allowed_tool_health",
-            label="允许工具上线检查",
+            label="Skill allowed tools 上线检查",
             passed=not unhealthy_tools,
             severity="blocker",
-            detail="允许工具上线检查通过。" if not unhealthy_tools else f"{len(unhealthy_tools)} 个允许工具存在未通过项。",
+            detail="Skill allowed tools 上线检查通过。" if not unhealthy_tools else f"{len(unhealthy_tools)} 个 allowed Tools 存在未通过项。",
             evidence={
                 "tools": [
                     {
