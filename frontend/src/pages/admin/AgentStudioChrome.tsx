@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Button, Popconfirm, Select, Space, Tag } from 'antd';
 import {
   CheckCircle2,
   CircleAlert,
@@ -8,6 +7,18 @@ import {
   Stethoscope,
   Trash2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Confirm } from '@/components/ui/confirm';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 import type { Agent } from '../../types/domain';
 import type { AgentPreflightCheck } from '../../types/domain';
 import {
@@ -15,10 +26,23 @@ import {
   agentStudioObjectDetail,
   agentStudioObjectLabel,
 } from '../../services/agentLifecycle';
-import { agentStatusMeta, shortHash, studioSteps, type StudioStepKey } from './agentStudioModel';
+import { shortHash, studioSteps, type StudioStepKey } from './agentStudioModel';
 
 function studioStatusLabel(agent: Agent | null) {
   return agentStudioObjectLabel(agent);
+}
+
+function statusVariant(status?: Agent['status']): NonNullable<BadgeProps['variant']> {
+  switch (status) {
+    case 'published':
+      return 'success';
+    case 'inactive':
+      return 'muted';
+    case 'unpublished':
+      return 'warning';
+    default:
+      return 'muted';
+  }
 }
 
 interface BlueprintRailProps {
@@ -44,44 +68,45 @@ export function AgentBlueprintRail({
   })), [agents]);
 
   return (
-    <aside className="blueprint-rail">
-      <div className="rail-header">
-        <span>当前服务</span>
+    <aside className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1.5">
+        <span className="text-xs font-medium text-muted-foreground">当前服务</span>
         <Select
-          showSearch
-          className="blueprint-service-select"
           value={editingAgent?.id}
-          placeholder="选择 Agent 服务"
-          options={serviceOptions}
-          optionFilterProp="label"
           disabled={!agents.length}
-          onChange={(id) => {
+          onValueChange={(id) => {
             const next = agents.find((agent) => agent.id === id);
             if (next) onSelect(next);
           }}
-        />
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="选择 Agent 服务" />
+          </SelectTrigger>
+          <SelectContent>
+            {serviceOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="rail-actions">
+      <div className="flex items-center gap-2">
         <Button
-          type="primary"
-          icon={<Plus size={16} />}
           disabled={!canEdit}
           title={canEdit ? '新建服务' : '需编辑权限'}
           onClick={onCreate}
         >
-          新建服务
+          <Plus /> 新建服务
         </Button>
         {editingAgent && (
-          <Popconfirm title="确定删除这个 Agent？" onConfirm={onDelete} disabled={!canEdit}>
+          <Confirm title="确定删除这个 Agent？" onConfirm={onDelete} disabled={!canEdit}>
             <Button
-              danger
-              icon={<Trash2 size={14} />}
+              variant="destructive"
               disabled={!canEdit}
               title={canEdit ? '删除当前 Agent' : '需编辑权限'}
             >
-              删除
+              <Trash2 className="size-3.5" /> 删除
             </Button>
-          </Popconfirm>
+          </Confirm>
         )}
       </div>
     </aside>
@@ -94,6 +119,7 @@ interface AgentStudioHeaderProps {
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   isDeactivating: boolean;
+  onSave: () => void;
   onOpenManifest: () => void;
   onOpenPreflight: () => void;
   onDeactivate: () => void;
@@ -105,6 +131,7 @@ export function AgentStudioHeader({
   hasUnsavedChanges,
   isSaving,
   isDeactivating,
+  onSave,
   onOpenManifest,
   onOpenPreflight,
   onDeactivate,
@@ -113,43 +140,39 @@ export function AgentStudioHeader({
   const releaseText = lifecycleReleaseLabel(editingAgent, Boolean(editingAgent?.config_pending_publish));
   const objectDetail = agentStudioObjectDetail(editingAgent, hasUnsavedChanges, Boolean(editingAgent?.config_pending_publish));
   return (
-    <div className="inline-builder-header">
-      <div className="studio-object-title">
-        <div className="eyebrow"><ListChecks size={14} /> 服务配置</div>
-        <h2>{editingAgent ? editingAgent.name : '新建 Agent 服务'}</h2>
-        <p className="studio-object-state-note">{objectDetail}</p>
-        <div className="studio-object-meta">
-          <Tag color={editingAgent ? agentStatusMeta[editingAgent.status]?.color : 'default'}>
-            {objectStateLabel}
-          </Tag>
+    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListChecks className="size-3.5" /> 服务配置</div>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">{editingAgent ? editingAgent.name : '新建 Agent 服务'}</h2>
+        <p className="text-sm text-muted-foreground">{objectDetail}</p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant={statusVariant(editingAgent?.status)}>{objectStateLabel}</Badge>
           <span>{releaseText}</span>
           <span>{editingAgent?.model ? `模型通道 ${editingAgent.model}` : '未绑定模型通道'}</span>
         </div>
       </div>
-      <Space className="studio-action-bar">
-        <Button icon={<ListChecks size={16} />} disabled={!editingAgent} onClick={onOpenManifest}>上线版本</Button>
-        <Button icon={<Stethoscope size={16} />} disabled={!editingAgent} onClick={onOpenPreflight}>上线检查</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" disabled={!editingAgent} onClick={onOpenManifest}><ListChecks /> 上线版本</Button>
+        <Button variant="outline" disabled={!editingAgent} onClick={onOpenPreflight}><Stethoscope /> 上线检查</Button>
         {editingAgent?.status === 'published' && (
           <Button
-            danger
-            loading={isDeactivating}
-            disabled={!canEdit}
+            variant="destructive"
+            disabled={!canEdit || isDeactivating}
             title={canEdit ? '停用已上线 Agent' : '需编辑权限'}
             onClick={onDeactivate}
           >
-            停用
+            {isDeactivating ? <Spinner className="text-current" /> : null} 停用
           </Button>
         )}
         <Button
-          type="default"
-          htmlType="submit"
-          loading={isSaving}
-          disabled={!canEdit}
+          variant="outline"
+          disabled={!canEdit || isSaving}
           title={canEdit ? '保存配置；已上线版本不受影响' : '需编辑权限'}
+          onClick={onSave}
         >
-          保存配置
+          {isSaving ? <Spinner className="text-current" /> : null} 保存配置
         </Button>
-      </Space>
+      </div>
     </div>
   );
 }
@@ -187,24 +210,30 @@ export function StudioStepNav({ activeStep, blockers = [], onChange }: StudioSte
     return acc;
   }, {});
   return (
-    <nav className="studio-process-bar" aria-label="Agent 配置分区">
-      {studioSteps.map((step, index) => (
-        <button
-          type="button"
-          className={[
-            'studio-step-pill',
-            activeStep === step.key ? 'active' : '',
-            blockerCounts[step.key] ? 'has-blocker' : '',
-          ].filter(Boolean).join(' ')}
-          key={step.key}
-          onClick={() => onChange(step.key)}
-        >
-          <em>{String(index + 1).padStart(2, '0')}</em>
-          <span>{step.group}</span>
-          <strong>{step.title}</strong>
-          {Boolean(blockerCounts[step.key]) && <b>{blockerCounts[step.key]}</b>}
-        </button>
-      ))}
+    <nav className="flex flex-wrap gap-2" aria-label="Agent 配置分区">
+      {studioSteps.map((step, index) => {
+        const active = activeStep === step.key;
+        const hasBlocker = Boolean(blockerCounts[step.key]);
+        return (
+          <button
+            type="button"
+            className={cn(
+              'relative flex min-w-[8.5rem] flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors',
+              active ? 'border-primary bg-primary/8' : 'border-border bg-card hover:border-primary/40',
+              hasBlocker && !active && 'border-destructive/40',
+            )}
+            key={step.key}
+            onClick={() => onChange(step.key)}
+          >
+            <em className="text-[11px] font-semibold not-italic text-muted-foreground">{String(index + 1).padStart(2, '0')}</em>
+            <span className="text-[11px] text-muted-foreground">{step.group}</span>
+            <strong className={cn('text-sm font-semibold', active ? 'text-primary' : 'text-foreground')}>{step.title}</strong>
+            {hasBlocker && (
+              <b className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">{blockerCounts[step.key]}</b>
+            )}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -302,33 +331,33 @@ export function StudioInspectorPanel({
     ...inspector.regressionBlockers.map((item) => ({ key: 'regression_suite', label: item })),
   ].slice(0, 3);
   const statusTone = inspector.canPublish ? 'ready' : inspector.canRun ? 'warning' : 'blocked';
+  const toneBorder = statusTone === 'ready' ? 'border-success/30 bg-success/6' : statusTone === 'warning' ? 'border-warning/30 bg-warning/6' : 'border-destructive/30 bg-destructive/6';
+  const badgeVariant: NonNullable<BadgeProps['variant']> = statusTone === 'ready' ? 'success' : statusTone === 'warning' ? 'warning' : 'destructive';
 
   return (
-    <aside className="studio-inspector-panel">
-      <section className={`studio-review-console ${statusTone}`}>
-        <div className="studio-review-head">
-          <div className="inspector-title">
-            <Stethoscope size={16} />
+    <aside className="space-y-3">
+      <section className={cn('space-y-3 rounded-xl border p-4', toneBorder)}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Stethoscope className="size-4" />
             <span>上线审阅</span>
           </div>
-          <span className={`studio-review-badge ${statusTone}`}>
+          <Badge variant={badgeVariant}>
             {inspector.canPublish ? '可上线' : inspector.canRun ? '可验证' : '待处理'}
-          </span>
+          </Badge>
         </div>
-        <div className={`studio-next-hero ${statusTone}`}>
-          {inspector.canPublish ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />}
-          <div>
-            <span>下一步</span>
-            <strong>{nextAction}</strong>
-            <span>{inspector.blockers} 个未通过项 · {inspector.warnings} 条风险提示</span>
+        <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card p-3">
+          {inspector.canPublish ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> : <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />}
+          <div className="min-w-0 space-y-0.5">
+            <span className="block text-xs text-muted-foreground">下一步</span>
+            <strong className="block text-sm font-semibold text-foreground">{nextAction}</strong>
+            <span className="block text-xs text-muted-foreground">{inspector.blockers} 个未通过项 · {inspector.warnings} 条风险提示</span>
           </div>
         </div>
-        <div className="studio-primary-action">
+        <div className="flex flex-wrap gap-2">
           {inspector.showPublishAction && (
             <Button
-              type="primary"
-              loading={isPublishing}
-              disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canPublish}
+              disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canPublish || isPublishing}
               title={!canEdit
                 ? '需编辑权限'
                 : inspector.hasUnsavedChanges
@@ -336,69 +365,78 @@ export function StudioInspectorPanel({
                   : inspector.publishDisabledReason || '生成不可变上线版本'}
               onClick={onPublish}
             >
-              {inspector.publishActionLabel}
+              {isPublishing ? <Spinner className="text-current" /> : null} {inspector.publishActionLabel}
             </Button>
           )}
           {!inspector.showPublishAction && (
             <Button
-              type="primary"
-              disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun}
-              loading={testRunning}
+              disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun || testRunning}
               onClick={onRunBuilderTest}
             >
-              业务验证
+              {testRunning ? <Spinner className="text-current" /> : null} 业务验证
             </Button>
           )}
-          <Button disabled={!editingAgent} onClick={onOpenPreflight}>查看检查</Button>
+          <Button variant="outline" disabled={!editingAgent} onClick={onOpenPreflight}>查看检查</Button>
         </div>
         {visibleBlockers.length ? (
-          <div className="studio-blocker-brief">
-            <span>优先处理</span>
-            <div className="inspector-blockers">
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground">优先处理</span>
+            <div className="space-y-1.5">
               {visibleBlockers.map((item) => (
-                <button type="button" key={`${item.key}-${item.label}`} onClick={() => onFocusBlocker(item.key)}>
-                  <CircleAlert size={14} />
-                  <span>{item.label}</span>
+                <button
+                  type="button"
+                  key={`${item.key}-${item.label}`}
+                  className="flex w-full items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs text-foreground hover:border-primary/40"
+                  onClick={() => onFocusBlocker(item.key)}
+                >
+                  <CircleAlert className="size-3.5 shrink-0 text-warning" />
+                  <span className="min-w-0 flex-1">{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
         ) : (
-          <div className="mini-empty compact">
-            <CheckCircle2 size={15} />
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="size-3.5 text-success" />
             <span>未发现主要未通过项。</span>
           </div>
         )}
-        <details className="studio-inspector-technical">
-          <summary>运行证据</summary>
-          {inspector.manifestError && (
-            <div className="inspector-disabled-reason">
-              <CircleAlert size={14} />
-              <span>{inspector.manifestError}</span>
-            </div>
-          )}
-          <div className="studio-review-state-grid">
-            <div>
-              <span>服务配置</span>
-              <strong>{inspector.configStatusLabel}</strong>
-            </div>
-            <div>
-              <span>运行真相</span>
-              <strong>{shortHash(inspector.manifestHash)}</strong>
-            </div>
-          </div>
-          <div className="studio-check-metrics">
-            {checkMetrics.map((item) => (
-              <div key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+        <details className="rounded-lg border border-border bg-card p-3">
+          <summary className="cursor-pointer text-xs font-medium text-foreground">运行证据</summary>
+          <div className="mt-3 space-y-3">
+            {inspector.manifestError && (
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <CircleAlert className="size-3.5" />
+                <span>{inspector.manifestError}</span>
               </div>
-            ))}
-          </div>
-          <div className="studio-review-links">
-            <Button size="small" loading={testRunning} disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun} onClick={onRunBuilderTest}>业务验证</Button>
-            <Button size="small" loading={isSuiteRunning} disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun} onClick={onRunSuite}>验证服务配置</Button>
-            <Button size="small" disabled={!editingAgent} onClick={onOpenManifest}>上线版本</Button>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-muted/40 px-2.5 py-1.5">
+                <span className="block text-xs text-muted-foreground">服务配置</span>
+                <strong className="text-sm font-semibold text-foreground">{inspector.configStatusLabel}</strong>
+              </div>
+              <div className="rounded-md bg-muted/40 px-2.5 py-1.5">
+                <span className="block text-xs text-muted-foreground">运行真相</span>
+                <strong className="text-sm font-semibold text-foreground">{shortHash(inspector.manifestHash)}</strong>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {checkMetrics.map((item) => (
+                <div key={item.label} className="rounded-md bg-muted/40 px-2.5 py-1.5 text-center">
+                  <span className="block text-xs text-muted-foreground">{item.label}</span>
+                  <strong className="text-sm font-semibold text-foreground">{item.value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun || testRunning} onClick={onRunBuilderTest}>
+                {testRunning ? <Spinner className="text-current" /> : null} 业务验证
+              </Button>
+              <Button size="sm" variant="outline" disabled={!canEdit || inspector.hasUnsavedChanges || !inspector.canRun || isSuiteRunning} onClick={onRunSuite}>
+                {isSuiteRunning ? <Spinner className="text-current" /> : null} 验证服务配置
+              </Button>
+              <Button size="sm" variant="outline" disabled={!editingAgent} onClick={onOpenManifest}>上线版本</Button>
+            </div>
           </div>
         </details>
       </section>

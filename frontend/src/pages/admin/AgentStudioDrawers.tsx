@@ -1,5 +1,8 @@
-import { Drawer, Progress, Space, Tag } from 'antd';
+import * as React from 'react';
 import { CheckCircle2, CircleAlert } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody } from '@/components/ui/sheet';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { AgentPreflight, AgentReleaseSnapshot, AgentRuntimeManifest, AgentRuntimeManifestEnvelope, KnowledgeDocumentDetail, RuntimeModelContract } from '../../types/domain';
 import {
   agentStatusMeta,
@@ -10,6 +13,52 @@ import {
 } from './agentStudioModel';
 import { renderRuntimeResources } from './renderers';
 
+function ScoreRing({ percent, size = 96 }: { percent: number; size?: number }) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+  const strokeWidth = Math.max(6, Math.round(size * 0.08));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - safePercent / 100);
+  const center = size / 2;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="-rotate-90">
+        <circle className="text-muted" cx={center} cy={center} r={radius} strokeWidth={strokeWidth} stroke="currentColor" fill="none" />
+        <circle
+          className="text-primary transition-all"
+          cx={center}
+          cy={center}
+          r={radius}
+          strokeWidth={strokeWidth}
+          stroke="currentColor"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+        />
+      </svg>
+      <strong className="absolute inset-0 flex items-center justify-center text-lg font-semibold text-foreground">{safePercent}%</strong>
+    </div>
+  );
+}
+
+function KvList({ items }: { items: Array<{ label: React.ReactNode; value: React.ReactNode }> }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {items.map((item, index) => (
+        <div key={index} className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">
+          <span className="text-muted-foreground">{item.label}</span>
+          <strong className="font-semibold text-foreground">{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniEmpty({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground', className)}>{children}</div>;
+}
+
 interface AgentPreflightDrawerProps {
   open: boolean;
   preflight: AgentPreflight | null;
@@ -18,80 +67,84 @@ interface AgentPreflightDrawerProps {
 
 export function AgentPreflightDrawer({ open, preflight, onClose }: AgentPreflightDrawerProps) {
   return (
-    <Drawer
-      title={preflight ? `Preflight · ${preflight.agent_name}` : 'Preflight'}
-      width={920}
-      open={open}
-      onClose={onClose}
-    >
-      {preflight && (
-        <div className="agent-preflight">
-          <div className="preflight-summary">
-            <Progress type="circle" percent={preflight.score} size={96} />
-            <div className={preflight.can_run ? 'preflight-state passed' : 'preflight-state'}>
-              {preflight.can_run ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />}
-              <div>
-                <strong>{preflight.can_run ? '可验证' : '运行前存在未通过项'}</strong>
-                <span>{new Date(preflight.checked_at).toLocaleString()} · {preflight.blockers} 未通过项 / {preflight.warnings} 风险提示</span>
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-[920px]">
+        <SheetHeader>
+          <SheetTitle>{preflight ? `Preflight · ${preflight.agent_name}` : 'Preflight'}</SheetTitle>
+        </SheetHeader>
+        <SheetBody className="space-y-5">
+          {preflight && (
+            <>
+              <div className="flex flex-wrap items-center gap-4">
+                <ScoreRing percent={preflight.score} />
+                <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2', preflight.can_run ? 'border-success/30 bg-success/8' : 'border-warning/30 bg-warning/8')}>
+                  {preflight.can_run ? <CheckCircle2 className="size-4 text-success" /> : <CircleAlert className="size-4 text-warning" />}
+                  <div>
+                    <strong className="block text-sm font-semibold text-foreground">{preflight.can_run ? '可验证' : '运行前存在未通过项'}</strong>
+                    <span className="text-xs text-muted-foreground">{new Date(preflight.checked_at).toLocaleString()} · {preflight.blockers} 未通过项 / {preflight.warnings} 风险提示</span>
+                  </div>
+                </div>
+                <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2', preflight.can_publish ? 'border-success/30 bg-success/8' : 'border-warning/30 bg-warning/8')}>
+                  {preflight.can_publish ? <CheckCircle2 className="size-4 text-success" /> : <CircleAlert className="size-4 text-warning" />}
+                  <div>
+                    <strong className="block text-sm font-semibold text-foreground">{preflight.can_publish ? '可上线' : '存在未通过项'}</strong>
+                    <span className="text-xs text-muted-foreground">{agentStatusMeta[preflight.status as keyof typeof agentStatusMeta]?.label || preflight.status}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className={preflight.can_publish ? 'preflight-state passed' : 'preflight-state'}>
-              {preflight.can_publish ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />}
-              <div>
-                <strong>{preflight.can_publish ? '可上线' : '存在未通过项'}</strong>
-                <span>{agentStatusMeta[preflight.status as keyof typeof agentStatusMeta]?.label || preflight.status}</span>
+              <div className="space-y-4">
+                {preflightGroupOrder.map((group) => {
+                  const checks = preflight.checks.filter((item) => item.group === group);
+                  if (!checks.length) return null;
+                  return (
+                    <section key={group} className="space-y-2">
+                      <h3 className="text-sm font-semibold text-foreground">{preflightGroupMeta[group]}</h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {checks.map((check) => {
+                          const tone = check.passed
+                            ? 'border-success/30 bg-success/6'
+                            : check.severity === 'warning'
+                              ? 'border-warning/30 bg-warning/6'
+                              : check.severity === 'info'
+                                ? 'border-info/30 bg-info/6'
+                                : 'border-destructive/30 bg-destructive/6';
+                          const badge: NonNullable<BadgeProps['variant']> = check.severity === 'blocker' ? 'destructive' : check.severity === 'warning' ? 'warning' : 'muted';
+                          return (
+                            <article className={cn('space-y-1.5 rounded-lg border p-3', tone)} key={check.key}>
+                              <div className="flex items-center gap-2">
+                                {check.passed ? <CheckCircle2 className="size-4 text-success" /> : <CircleAlert className="size-4 text-warning" />}
+                                <strong className="text-sm font-semibold text-foreground">{check.label}</strong>
+                                <Badge variant={badge} className="ml-auto">
+                                  {check.severity === 'blocker' ? '未通过' : check.severity === 'warning' ? '风险提示' : '信息'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{check.detail}</p>
+                              {renderPreflightEvidence(check)}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
-            </div>
-          </div>
-          <div className="preflight-groups">
-            {preflightGroupOrder.map((group) => {
-              const checks = preflight.checks.filter((item) => item.group === group);
-              if (!checks.length) return null;
-              return (
-                <section key={group}>
-                  <h3>{preflightGroupMeta[group]}</h3>
-                  <div className="preflight-check-grid">
-                    {checks.map((check) => (
-                      <article
-                        className={[
-                          'preflight-check',
-                          check.passed ? 'passed' : '',
-                          !check.passed && check.severity === 'warning' ? 'warning' : '',
-                          !check.passed && check.severity === 'info' ? 'info' : '',
-                        ].filter(Boolean).join(' ')}
-                        key={check.key}
-                      >
-                        <div>
-                          {check.passed ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}
-                          <strong>{check.label}</strong>
-                          <Tag color={check.severity === 'blocker' ? 'error' : check.severity === 'warning' ? 'warning' : 'default'}>
-                            {check.severity === 'blocker' ? '未通过' : check.severity === 'warning' ? '风险提示' : '信息'}
-                          </Tag>
-                        </div>
-                        <p>{check.detail}</p>
-                        {renderPreflightEvidence(check)}
-                      </article>
-                    ))}
+              {preflight.runtime_manifest.warnings.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">风险提示</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {preflight.runtime_manifest.warnings.map((item) => <Badge variant="warning" key={item}>{item}</Badge>)}
                   </div>
                 </section>
-              );
-            })}
-          </div>
-          {preflight.runtime_manifest.warnings.length > 0 && (
-            <section>
-              <h3>风险提示</h3>
-              <div className="manifest-warnings">
-                {preflight.runtime_manifest.warnings.map((item) => <Tag color="warning" key={item}>{item}</Tag>)}
-              </div>
-            </section>
+              )}
+              <details className="rounded-lg border border-border bg-muted/30 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-foreground">技术详情</summary>
+                <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">{JSON.stringify(preflight, null, 2)}</pre>
+              </details>
+            </>
           )}
-          <details className="studio-technical-details">
-            <summary>技术详情</summary>
-            <pre>{JSON.stringify(preflight, null, 2)}</pre>
-          </details>
-        </div>
-      )}
-    </Drawer>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -120,7 +173,6 @@ export function RuntimeManifestDrawer({
 }: RuntimeManifestDrawerProps) {
   const manifestEnvelope = manifest;
   const runtimeManifest = manifest?.manifest || null;
-  const hasCurrentSpec = Boolean(currentSpecHash);
   const hasReleaseManifest = Boolean(latestReleaseManifestHash);
   const isManifestAligned = Boolean(currentManifestHash && latestReleaseManifestHash && currentManifestHash === latestReleaseManifestHash);
   const latestRelease = releases[0];
@@ -132,170 +184,167 @@ export function RuntimeManifestDrawer({
     : [];
   const mainModelContract = runtimeManifest?.model_contracts?.find((item) => item.scope === 'main');
   return (
-    <Drawer
-      title={runtimeManifest ? `Runtime Manifest · ${runtimeManifest.agent_name}` : 'Runtime Manifest'}
-      width={860}
-      open={open}
-      onClose={onClose}
-    >
-      {manifestEnvelope && runtimeManifest && (
-        <div className="runtime-manifest">
-          <section>
-            <h3>Runtime Manifest</h3>
-            <div className={isManifestAligned ? 'release-compare-note aligned' : 'release-compare-note pending'}>
-              <span>{isManifestAligned ? '当前 Manifest 与上线版本一致' : hasReleaseManifest ? '当前 Manifest 与上线版本不一致' : '尚未生成上线版本'}</span>
-              <strong>当前 {shortHash(currentManifestHash || manifestEnvelope.manifest_hash)} · 上线 {shortHash(latestReleaseManifestHash)}</strong>
-            </div>
-            <div className="kv-list">
-              <div><span>Manifest Hash</span><strong>{shortHash(currentManifestHash || manifestEnvelope.manifest_hash)}</strong></div>
-              <div><span>配置版本</span><strong>{shortHash(currentSpecHash)}</strong></div>
-              <div><span>清单来源</span><strong>{manifestEnvelope.source}</strong></div>
-              <div><span>模型通道</span><strong>{mainModelContract?.provider_type || '-'}</strong></div>
-              <div><span>模型</span><strong>{runtimeManifest.model}</strong></div>
-              <div><span>执行引擎</span><strong>{runtimeManifest.engine_mode}</strong></div>
-              <div><span>状态存储</span><strong>{runtimeManifest.backend_type}</strong></div>
-              <div><span>检查点</span><strong>{runtimeManifest.checkpointing ? '开启' : '关闭'}</strong></div>
-              <div><span>输出</span><strong>{runtimeManifest.output.mode}</strong></div>
-            </div>
-          </section>
-          <section>
-            <h3>Manifest Diff</h3>
-            <div className="manifest-diff-panels">
-              <ManifestDiffPanel
-                title="未保存改动 vs 已保存草稿"
-                description={manifestEnvelope.source === 'preview' ? '反映当前编辑对运行真相的实时影响。' : '当前没有未保存编辑，草稿 diff 为空。'}
-                emptyText={manifestEnvelope.source === 'preview' ? '未保存编辑没有改变可比较的运行结构。' : '仅在未保存编辑预览时显示。'}
-                diffs={savedDraftDiff}
-              />
-              <ManifestDiffPanel
-                title="当前 Manifest vs 上线版本"
-                description="用于判断这次配置是否改变线上 Tools、权限、后端或知识快照。"
-                emptyText={latestRelease ? '当前 Manifest 与最新上线版本无结构差异。' : '尚未生成上线版本，暂无 diff。'}
-                diffs={releaseDiff}
-              />
-            </div>
-          </section>
-          <section>
-            <h3>上线版本</h3>
-            <div className="release-record-list">
-              {releases.map((release) => {
-                const releaseManifest = release.runtime_manifest;
-                const resourceCount = releaseManifest.main_tools.length + releaseManifest.main_skills.length + releaseManifest.subagents.length;
-                return (
-                  <article className={release.manifest_hash === latestReleaseManifestHash ? 'current' : ''} key={release.id}>
-                    <div className="release-record-head">
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-[860px]">
+        <SheetHeader>
+          <SheetTitle>{runtimeManifest ? `Runtime Manifest · ${runtimeManifest.agent_name}` : 'Runtime Manifest'}</SheetTitle>
+        </SheetHeader>
+        <SheetBody className="space-y-5">
+          {manifestEnvelope && runtimeManifest && (
+            <>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Runtime Manifest</h3>
+                <div className={cn('flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-sm', isManifestAligned ? 'border-success/30 bg-success/8' : 'border-warning/30 bg-warning/8')}>
+                  <span className="text-muted-foreground">{isManifestAligned ? '当前 Manifest 与上线版本一致' : hasReleaseManifest ? '当前 Manifest 与上线版本不一致' : '尚未生成上线版本'}</span>
+                  <strong className="font-semibold text-foreground">当前 {shortHash(currentManifestHash || manifestEnvelope.manifest_hash)} · 上线 {shortHash(latestReleaseManifestHash)}</strong>
+                </div>
+                <KvList
+                  items={[
+                    { label: 'Manifest Hash', value: shortHash(currentManifestHash || manifestEnvelope.manifest_hash) },
+                    { label: '配置版本', value: shortHash(currentSpecHash) },
+                    { label: '清单来源', value: manifestEnvelope.source },
+                    { label: '模型通道', value: mainModelContract?.provider_type || '-' },
+                    { label: '模型', value: runtimeManifest.model },
+                    { label: '执行引擎', value: runtimeManifest.engine_mode },
+                    { label: '状态存储', value: runtimeManifest.backend_type },
+                    { label: '检查点', value: runtimeManifest.checkpointing ? '开启' : '关闭' },
+                    { label: '输出', value: runtimeManifest.output.mode },
+                  ]}
+                />
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Manifest Diff</h3>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <ManifestDiffPanel
+                    title="未保存改动 vs 已保存草稿"
+                    description={manifestEnvelope.source === 'preview' ? '反映当前编辑对运行真相的实时影响。' : '当前没有未保存编辑，草稿 diff 为空。'}
+                    emptyText={manifestEnvelope.source === 'preview' ? '未保存编辑没有改变可比较的运行结构。' : '仅在未保存编辑预览时显示。'}
+                    diffs={savedDraftDiff}
+                  />
+                  <ManifestDiffPanel
+                    title="当前 Manifest vs 上线版本"
+                    description="用于判断这次配置是否改变线上 Tools、权限、后端或知识快照。"
+                    emptyText={latestRelease ? '当前 Manifest 与最新上线版本无结构差异。' : '尚未生成上线版本，暂无 diff。'}
+                    diffs={releaseDiff}
+                  />
+                </div>
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">上线版本</h3>
+                <div className="space-y-2">
+                  {releases.map((release) => {
+                    const releaseManifest = release.runtime_manifest;
+                    const resourceCount = releaseManifest.main_tools.length + releaseManifest.main_skills.length + releaseManifest.subagents.length;
+                    const isCurrent = release.manifest_hash === latestReleaseManifestHash;
+                    return (
+                      <article className={cn('space-y-2 rounded-lg border p-3', isCurrent ? 'border-success/40 bg-success/6' : 'border-border bg-card')} key={release.id}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <strong className="text-sm font-semibold text-foreground">v{release.version}</strong>
+                            <span className="ml-2 text-xs text-muted-foreground">{new Date(release.created_at).toLocaleString('zh-CN', { hour12: false })}</span>
+                          </div>
+                          <Badge variant={isCurrent ? 'success' : 'muted'}>
+                            {isCurrent ? '当前上线版本' : '历史版本'}
+                          </Badge>
+                        </div>
+                        <KvList
+                          items={[
+                            { label: 'Manifest', value: shortHash(release.manifest_hash) },
+                            { label: '配置版本', value: shortHash(release.spec_hash) },
+                            { label: '模型通道', value: releaseManifest.model_contracts?.find((item) => item.scope === 'main')?.provider_type || '-' },
+                            { label: '模型', value: releaseManifest.model },
+                            { label: 'Runtime Resources', value: resourceCount },
+                            { label: '业务资料快照', value: `${release.knowledge_snapshot_count} 份` },
+                          ]}
+                        />
+                      </article>
+                    );
+                  })}
+                  {!releases.length && <MiniEmpty>尚未生成上线版本。</MiniEmpty>}
+                </div>
+              </section>
+              {runtimeManifest.warnings.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {runtimeManifest.warnings.map((item) => <Badge variant="warning" key={item}>{item}</Badge>)}
+                </div>
+              )}
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">模型调用快照</h3>
+                <div className="space-y-2">
+                  {runtimeManifest.model_contracts.map((contract) => (
+                    <article key={`${contract.scope}-${contract.subagent || 'main'}-${contract.llm_config_id}-${contract.model}`} className="space-y-2 rounded-lg border border-border bg-card p-3">
                       <div>
-                        <strong>v{release.version}</strong>
-                        <span>{new Date(release.created_at).toLocaleString('zh-CN', { hour12: false })}</span>
+                        <strong className="text-sm font-semibold text-foreground">{modelContractTitle(contract)}</strong>
+                        <span className="block text-xs text-muted-foreground">{contract.provider_type || 'unknown'} · {contract.model || '未设置模型'}</span>
                       </div>
-                      <Tag color={release.manifest_hash === latestReleaseManifestHash ? 'success' : 'default'}>
-                        {release.manifest_hash === latestReleaseManifestHash ? '当前上线版本' : '历史版本'}
-                      </Tag>
-                    </div>
-                    <div className="release-record-meta">
-                      <div><span>Manifest</span><strong>{shortHash(release.manifest_hash)}</strong></div>
-                      <div><span>配置版本</span><strong>{shortHash(release.spec_hash)}</strong></div>
-                      <div><span>模型通道</span><strong>{releaseManifest.model_contracts?.find((item) => item.scope === 'main')?.provider_type || '-'}</strong></div>
-                      <div><span>模型</span><strong>{releaseManifest.model}</strong></div>
-                      <div><span>Runtime Resources</span><strong>{resourceCount}</strong></div>
-                      <div><span>业务资料快照</span><strong>{release.knowledge_snapshot_count} 份</strong></div>
-                    </div>
-                  </article>
-                );
-              })}
-              {!releases.length && <div className="mini-empty compact">尚未生成上线版本。</div>}
-            </div>
-          </section>
-          {runtimeManifest.warnings.length > 0 && (
-            <div className="manifest-warnings">
-              {runtimeManifest.warnings.map((item) => <Tag color="warning" key={item}>{item}</Tag>)}
-            </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs">
+                        <div><strong className="block text-foreground">Base URL</strong><span className="text-muted-foreground">{contract.base_url || '官方默认'}</span></div>
+                        <div><strong className="block text-foreground">Headers</strong><span className="text-muted-foreground">{Object.keys(contract.default_headers || {}).length}</span></div>
+                        <div><strong className="block text-foreground">调用参数</strong><span className="text-muted-foreground">{modelContractParams(contract)}</span></div>
+                        <div><strong className="block text-foreground">Secret Ref</strong><span className="text-muted-foreground">{contract.api_key_ref || '-'}</span></div>
+                      </div>
+                    </article>
+                  ))}
+                  {!runtimeManifest.model_contracts.length && <MiniEmpty>未生成模型调用快照</MiniEmpty>}
+                </div>
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">主流程</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">Runtime Tools</strong>{renderRuntimeResources(runtimeManifest.main_tools)}</div>
+                  <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">Skills</strong>{renderRuntimeResources(runtimeManifest.main_skills)}</div>
+                  <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">人工确认</strong><span className="text-sm text-muted-foreground">{Object.keys(runtimeManifest.interrupt_on).join(', ') || '无'}</span></div>
+                  <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">访问边界</strong><span className="text-sm text-muted-foreground">{runtimeManifest.permissions.allow_write ? '可写' : '只读'} · {runtimeManifest.permissions.allowed_paths.join(', ') || '未限制'}</span></div>
+                </div>
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Subagents</h3>
+                <div className="space-y-2">
+                  {runtimeManifest.subagents.map((subagent) => (
+                    <article key={subagent.name} className="space-y-2 rounded-lg border border-border bg-card p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <strong className="text-sm font-semibold text-foreground">{subagent.name}</strong>
+                          <span className="block text-xs text-muted-foreground">{subagent.description || '未填写职责描述'}</span>
+                        </div>
+                        <Badge variant="muted">{subagent.model}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">Tools</strong>{renderRuntimeResources(subagent.tools)}</div>
+                        <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">Skills</strong>{renderRuntimeResources(subagent.skills)}</div>
+                        <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">输出</strong><span className="text-sm text-muted-foreground">{subagent.output.mode}</span></div>
+                        <div className="space-y-1.5"><strong className="text-xs font-medium text-foreground">访问边界</strong><span className="text-sm text-muted-foreground">{subagent.permissions.allow_write ? '可写' : '只读'}</span></div>
+                      </div>
+                    </article>
+                  ))}
+                  {!runtimeManifest.subagents.length && <MiniEmpty>未配置协作角色</MiniEmpty>}
+                </div>
+              </section>
+              {(
+                runtimeManifest.missing_tools.length > 0
+                || runtimeManifest.missing_skills.length > 0
+                || runtimeManifest.inactive_tools.length > 0
+                || runtimeManifest.inactive_skills.length > 0
+              ) && (
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">依赖未通过项</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {runtimeManifest.missing_tools.map((item) => <Badge variant="destructive" key={`tool-${item}`}>缺失 Tool：{item}</Badge>)}
+                    {runtimeManifest.missing_skills.map((item) => <Badge variant="destructive" key={`skill-${item}`}>缺失 Skill：{item}</Badge>)}
+                    {runtimeManifest.inactive_tools.map((item) => <Badge variant="warning" key={`inactive-tool-${item}`}>未启用 Tool：{item}</Badge>)}
+                    {runtimeManifest.inactive_skills.map((item) => <Badge variant="warning" key={`inactive-skill-${item}`}>未启用 Skill：{item}</Badge>)}
+                  </div>
+                </section>
+              )}
+              <details className="rounded-lg border border-border bg-muted/30 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-foreground">技术详情</summary>
+                <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">{JSON.stringify(manifestEnvelope, null, 2)}</pre>
+              </details>
+            </>
           )}
-          <section>
-            <h3>模型调用快照</h3>
-            <div className="manifest-model-contracts">
-              {runtimeManifest.model_contracts.map((contract) => (
-                <article key={`${contract.scope}-${contract.subagent || 'main'}-${contract.llm_config_id}-${contract.model}`}>
-                  <div>
-                    <strong>{modelContractTitle(contract)}</strong>
-                    <span>{contract.provider_type || 'unknown'} · {contract.model || '未设置模型'}</span>
-                  </div>
-                  <div className="manifest-section-grid">
-                    <div><strong>Base URL</strong><span>{contract.base_url || '官方默认'}</span></div>
-                    <div><strong>Headers</strong><span>{Object.keys(contract.default_headers || {}).length}</span></div>
-                    <div><strong>调用参数</strong><span>{modelContractParams(contract)}</span></div>
-                    <div><strong>Secret Ref</strong><span>{contract.api_key_ref || '-'}</span></div>
-                  </div>
-                </article>
-              ))}
-              {!runtimeManifest.model_contracts.length && <div className="mini-empty">未生成模型调用快照</div>}
-            </div>
-          </section>
-          <section>
-            <h3>主流程</h3>
-            <div className="manifest-section-grid">
-              <div>
-                <strong>Runtime Tools</strong>
-                {renderRuntimeResources(runtimeManifest.main_tools)}
-              </div>
-              <div>
-                <strong>Skills</strong>
-                {renderRuntimeResources(runtimeManifest.main_skills)}
-              </div>
-              <div>
-                <strong>人工确认</strong>
-                <span>{Object.keys(runtimeManifest.interrupt_on).join(', ') || '无'}</span>
-              </div>
-              <div>
-                <strong>访问边界</strong>
-                <span>{runtimeManifest.permissions.allow_write ? '可写' : '只读'} · {runtimeManifest.permissions.allowed_paths.join(', ') || '未限制'}</span>
-              </div>
-            </div>
-          </section>
-          <section>
-            <h3>Subagents</h3>
-            <div className="manifest-subagents">
-              {runtimeManifest.subagents.map((subagent) => (
-                <article key={subagent.name}>
-                  <div>
-                    <strong>{subagent.name}</strong>
-                    <span>{subagent.description || '未填写职责描述'}</span>
-                  </div>
-                  <Tag>{subagent.model}</Tag>
-                  <div className="manifest-section-grid">
-                    <div><strong>Tools</strong>{renderRuntimeResources(subagent.tools)}</div>
-                    <div><strong>Skills</strong>{renderRuntimeResources(subagent.skills)}</div>
-                    <div><strong>输出</strong><span>{subagent.output.mode}</span></div>
-                    <div><strong>访问边界</strong><span>{subagent.permissions.allow_write ? '可写' : '只读'}</span></div>
-                  </div>
-                </article>
-              ))}
-              {!runtimeManifest.subagents.length && <div className="mini-empty">未配置协作角色</div>}
-            </div>
-          </section>
-          {(
-            runtimeManifest.missing_tools.length > 0
-            || runtimeManifest.missing_skills.length > 0
-            || runtimeManifest.inactive_tools.length > 0
-            || runtimeManifest.inactive_skills.length > 0
-          ) && (
-            <section>
-              <h3>依赖未通过项</h3>
-              <Space wrap>
-                {runtimeManifest.missing_tools.map((item) => <Tag color="error" key={`tool-${item}`}>缺失 Tool：{item}</Tag>)}
-                {runtimeManifest.missing_skills.map((item) => <Tag color="error" key={`skill-${item}`}>缺失 Skill：{item}</Tag>)}
-                {runtimeManifest.inactive_tools.map((item) => <Tag color="warning" key={`inactive-tool-${item}`}>未启用 Tool：{item}</Tag>)}
-                {runtimeManifest.inactive_skills.map((item) => <Tag color="warning" key={`inactive-skill-${item}`}>未启用 Skill：{item}</Tag>)}
-              </Space>
-            </section>
-          )}
-          <details className="studio-technical-details">
-            <summary>技术详情</summary>
-            <pre>{JSON.stringify(manifestEnvelope, null, 2)}</pre>
-          </details>
-        </div>
-      )}
-    </Drawer>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -311,23 +360,26 @@ function ManifestDiffPanel({
   diffs: ManifestDiffItem[];
 }) {
   return (
-    <article className="manifest-diff-panel">
-      <div className="manifest-diff-panel-head">
-        <strong>{title}</strong>
-        <span>{description}</span>
+    <article className="space-y-2 rounded-lg border border-border bg-card p-3">
+      <div className="space-y-0.5">
+        <strong className="text-sm font-semibold text-foreground">{title}</strong>
+        <span className="block text-xs text-muted-foreground">{description}</span>
       </div>
       {diffs.length ? (
-        <div className="manifest-diff-grid">
-          {diffs.map((item) => (
-            <article className={item.type} key={`${title}-${item.field}-${item.value}`}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <em>{item.type === 'added' ? '新增' : item.type === 'removed' ? '移除' : '变更'}</em>
-            </article>
-          ))}
+        <div className="space-y-1.5">
+          {diffs.map((item) => {
+            const variant: NonNullable<BadgeProps['variant']> = item.type === 'added' ? 'success' : item.type === 'removed' ? 'destructive' : 'warning';
+            return (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs" key={`${title}-${item.field}-${item.value}`}>
+                <span className="text-muted-foreground">{item.label}</span>
+                <strong className="min-w-0 flex-1 truncate font-medium text-foreground">{item.value}</strong>
+                <Badge variant={variant}>{item.type === 'added' ? '新增' : item.type === 'removed' ? '移除' : '变更'}</Badge>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div className="mini-empty compact">{emptyText}</div>
+        <MiniEmpty>{emptyText}</MiniEmpty>
       )}
     </article>
   );
@@ -411,37 +463,41 @@ interface KnowledgePreviewDrawerProps {
 
 export function KnowledgePreviewDrawer({ document, onClose }: KnowledgePreviewDrawerProps) {
   return (
-    <Drawer
-      title={document?.file_name || '业务资料'}
-      width={720}
-      open={Boolean(document)}
-      onClose={onClose}
-    >
-      {document && (
-        <div className="knowledge-detail">
-          <div className="kv-list">
-            <div><span>大小</span><strong>{Math.ceil(document.size / 1024)} KB</strong></div>
-            <div><span>字符数</span><strong>{document.char_count}</strong></div>
-            <div><span>片段数</span><strong>{document.chunk_count}</strong></div>
-            <div><span>状态</span><strong>{document.status}</strong></div>
-          </div>
-          {document.chunks?.length > 0 && (
-            <div className="knowledge-chunk-list">
-              {document.chunks.map((chunk) => (
-                <div className="knowledge-chunk-item" key={chunk.id}>
-                  <div className="knowledge-chunk-meta">
-                    <span>#{chunk.ordinal + 1}</span>
-                    <span>{chunk.char_count} 字符</span>
-                    {chunk.content_hash && <span>{chunk.content_hash.slice(0, 12)}</span>}
-                  </div>
-                  <p className="knowledge-chunk-text">{chunk.text}</p>
+    <Sheet open={Boolean(document)} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-[720px]">
+        <SheetHeader>
+          <SheetTitle>{document?.file_name || '业务资料'}</SheetTitle>
+        </SheetHeader>
+        <SheetBody className="space-y-4">
+          {document && (
+            <>
+              <KvList
+                items={[
+                  { label: '大小', value: `${Math.ceil(document.size / 1024)} KB` },
+                  { label: '字符数', value: document.char_count },
+                  { label: '片段数', value: document.chunk_count },
+                  { label: '状态', value: document.status },
+                ]}
+              />
+              {document.chunks?.length > 0 && (
+                <div className="space-y-2">
+                  {document.chunks.map((chunk) => (
+                    <div className="space-y-1 rounded-lg border border-border bg-card p-3" key={chunk.id}>
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>#{chunk.ordinal + 1}</span>
+                        <span>{chunk.char_count} 字符</span>
+                        {chunk.content_hash && <span>{chunk.content_hash.slice(0, 12)}</span>}
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm text-foreground">{chunk.text}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground">{document.content || document.preview || '暂无可读内容'}</pre>
+            </>
           )}
-          <pre>{document.content || document.preview || '暂无可读内容'}</pre>
-        </div>
-      )}
-    </Drawer>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }

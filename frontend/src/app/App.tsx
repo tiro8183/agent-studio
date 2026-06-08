@@ -252,12 +252,8 @@ export default function App() {
           <span className="text-muted-foreground/40">/</span>
           <span className="text-xs text-muted-foreground">{route.desc}</span>
         </header>
-        <main className={cn('flex-1 overflow-y-auto', route.modern ? 'p-6' : '')}>
-          {route.modern ? <Active currentUser={session} /> : (
-            <div className="agent-studio-legacy">
-              <Active currentUser={session} />
-            </div>
-          )}
+        <main className="flex-1 overflow-y-auto p-6">
+          <Active currentUser={session} />
         </main>
       </div>
     </div>

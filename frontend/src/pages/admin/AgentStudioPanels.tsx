@@ -1,6 +1,20 @@
-import { Button, Form, Input, InputNumber, Popconfirm, Select, Space, Switch, Tag, Upload } from 'antd';
-import type { UploadProps } from 'antd';
+import * as React from 'react';
 import { CheckCircle2, FileText, PlayCircle, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { NumberInput } from '@/components/ui/number-input';
+import { Confirm } from '@/components/ui/confirm';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type {
   Agent,
   AgentRegressionCoverage,
@@ -22,6 +36,18 @@ import {
   testCaseFreshness,
   testRunStatusTag,
 } from './agentStudioModel';
+import {
+  StudioSelect,
+  StudioSwitch,
+  StudioNumber,
+  StudioTags,
+  StudioTextarea,
+  MultiSelectControl,
+  TagsControl,
+  useFieldList,
+  type Option,
+  type StudioFormShim,
+} from './studioForm';
 
 const testStatusLabel: Record<AgentTestCase['last_status'], string> = {
   untested: '未运行',
@@ -29,10 +55,24 @@ const testStatusLabel: Record<AgentTestCase['last_status'], string> = {
   failed: '未通过',
 };
 
+function SectionTitle({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <span className="text-sm font-semibold text-foreground">{title}</span>
+      {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+    </div>
+  );
+}
+
+function MiniEmpty({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground', className)}>{children}</div>;
+}
+
 interface KnowledgePanelProps {
   editingAgent: Agent | null;
   documents: KnowledgeDocument[];
-  uploadProps: UploadProps;
+  acceptExtensions: string;
+  onUpload: (file: File) => void;
   uploadQuota?: UploadQuota;
   canEdit: boolean;
   onPreview: (documentId: string) => void;
@@ -42,12 +82,14 @@ interface KnowledgePanelProps {
 export function KnowledgePanel({
   editingAgent,
   documents,
-  uploadProps,
+  acceptExtensions,
+  onUpload,
   uploadQuota,
   canEdit,
   onPreview,
   onDelete,
 }: KnowledgePanelProps) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const uploadExtensions = uploadQuota?.allowed_extensions?.length
     ? uploadQuota.allowed_extensions.join(' / ')
     : '文本类文件';
@@ -59,63 +101,67 @@ export function KnowledgePanel({
     : '读取中';
 
   return (
-    <>
-      <div className="builder-section-title">
-        <span>业务资料</span>
-        <p>上传服务专属业务资料，运行时会自动注入上下文。</p>
-      </div>
+    <div className="space-y-4">
+      <SectionTitle title="业务资料" description="上传服务专属业务资料，运行时会自动注入上下文。" />
       {editingAgent ? (
         <>
-          <Upload {...uploadProps}>
-            <Button
-              icon={<FileText size={16} />}
-              disabled={!canEdit}
-              title={canEdit ? '上传业务资料' : '需编辑权限'}
-            >
-              上传业务资料
-            </Button>
-          </Upload>
-          <p className="upload-policy-note">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={acceptExtensions}
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUpload(file);
+              event.target.value = '';
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={!canEdit}
+            title={canEdit ? '上传业务资料' : '需编辑权限'}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <FileText /> 上传业务资料
+          </Button>
+          <p className="text-xs text-muted-foreground">
             支持 {uploadExtensions}，单文件 {singleFileLimit}，组织剩余 {remainingQuota}。
           </p>
-          <div className="knowledge-list">
+          <div className="space-y-2">
             {documents.map((item) => (
-              <div className="knowledge-row" key={item.id}>
-                <div>
-                  <strong>{item.file_name}</strong>
-                  <span>
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3" key={item.id}>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <strong className="block text-sm font-semibold text-foreground">{item.file_name}</strong>
+                  <span className="block text-xs text-muted-foreground">
                     {Math.ceil(item.size / 1024)} KB · {item.char_count || 0} 字符 · {item.chunk_count || 0} 片段 · {item.status}
                   </span>
-                  {item.preview && <em>{item.preview}</em>}
+                  {item.preview && <em className="block truncate text-xs text-muted-foreground">{item.preview}</em>}
                 </div>
+                <Button variant="outline" size="sm" onClick={() => onPreview(item.id)}>预览</Button>
                 <Button
-                  className="knowledge-preview-button"
-                  size="small"
-                  onClick={() => onPreview(item.id)}
-                >
-                  预览
-                </Button>
-                <Button
-                  danger
-                  size="small"
-                  icon={<Trash2 size={14} />}
+                  variant="destructive"
+                  size="icon"
+                  className="size-8"
                   disabled={!canEdit}
                   title={canEdit ? '删除业务资料' : '需编辑权限'}
                   onClick={() => onDelete(item.id)}
-                />
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </div>
             ))}
-            {!documents.length && <div className="mini-empty">暂无业务资料</div>}
+            {!documents.length && <MiniEmpty>暂无业务资料</MiniEmpty>}
           </div>
         </>
       ) : (
-        <div className="mini-empty">保存配置后可上传业务资料</div>
+        <MiniEmpty>保存配置后可上传业务资料</MiniEmpty>
       )}
-    </>
+    </div>
   );
 }
 
 interface RuntimePolicyPanelProps {
+  form: StudioFormShim;
   editingAgent: Agent | null;
   agentOutputSchemaText: string;
   harnessToolDescriptionText: string;
@@ -124,144 +170,138 @@ interface RuntimePolicyPanelProps {
   onHarnessToolDescriptionChange: (value: string) => void;
 }
 
+function FixedReplyRow({
+  form,
+  index,
+  canEdit,
+  onRemove,
+}: {
+  form: StudioFormShim;
+  index: number;
+  canEdit: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+      <StudioTags form={form} name={['routing', 'fixed_replies', index, 'keywords']} label="关键词" disabled={!canEdit} placeholder="输入后回车" />
+      <StudioTextarea form={form} name={['routing', 'fixed_replies', index, 'reply']} label="回复" rows={2} disabled={!canEdit} />
+      <Button variant="destructive" disabled={!canEdit} onClick={onRemove}>删除</Button>
+    </div>
+  );
+}
+
 export function RuntimePolicyPanel({
-  editingAgent,
+  form,
   agentOutputSchemaText,
   harnessToolDescriptionText,
   canEdit,
   onOutputSchemaChange,
   onHarnessToolDescriptionChange,
 }: RuntimePolicyPanelProps) {
+  const fixedReplies = useFieldList(form, ['routing', 'fixed_replies']);
   return (
-    <>
-      <div className="builder-section-title">
-        <span>运行策略</span>
-        <p>控制输出结构、人工确认和可访问路径；技术细节收进运行控制。</p>
-      </div>
-      <Space.Compact block>
-        <Form.Item name={['output', 'mode']} label="输出模式" className="compact-field">
-          <Select disabled={!canEdit} options={[
+    <div className="space-y-4">
+      <SectionTitle title="运行策略" description="控制输出结构、人工确认和可访问路径；技术细节收进运行控制。" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StudioSelect
+          form={form}
+          name={['output', 'mode']}
+          label="输出模式"
+          disabled={!canEdit}
+          options={[
             { value: 'text', label: '文本' },
             { value: 'json_schema', label: '结构化输出' },
-          ]} />
-        </Form.Item>
-        <Form.Item name={['permissions', 'allow_write']} label="允许写入" valuePropName="checked" className="compact-field">
-          <Switch disabled={!canEdit} />
-        </Form.Item>
-        <Form.Item name={['filesystem', 'read_only']} label="文件只读" valuePropName="checked" className="compact-field">
-          <Switch disabled={!canEdit} />
-        </Form.Item>
-      </Space.Compact>
-      <details className="studio-expert-settings">
-        <summary>运行控制</summary>
-        <div className="studio-expert-grid">
-          <Form.Item label="输出结构 Schema">
-            <Input.TextArea
+          ]}
+        />
+        <StudioSwitch form={form} name={['permissions', 'allow_write']} label="允许写入" disabled={!canEdit} />
+        <StudioSwitch form={form} name={['filesystem', 'read_only']} label="文件只读" disabled={!canEdit} />
+      </div>
+      <details className="rounded-lg border border-border bg-muted/20 p-3.5">
+        <summary className="cursor-pointer text-sm font-medium text-foreground">运行控制</summary>
+        <div className="mt-3 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">输出结构 Schema</label>
+            <Textarea
               rows={5}
               value={agentOutputSchemaText}
               disabled={!canEdit}
               onChange={(event) => onOutputSchemaChange(event.target.value)}
               placeholder='{"type":"object","properties":{"answer":{"type":"string"}}}'
             />
-          </Form.Item>
-          <Space.Compact block>
-            <Form.Item name="interrupt_tools" label="人工确认工具" className="compact-field">
-              <Select
-                disabled={!canEdit}
-                mode="tags"
-                tokenSeparators={[',', '，']}
-                placeholder="选择需要人工确认的工具"
-              />
-            </Form.Item>
-            <Form.Item name={['permissions', 'allowed_paths']} label="可访问路径" className="compact-field">
-              <Select disabled={!canEdit} mode="tags" tokenSeparators={[',', '，']} placeholder="输入允许访问的服务工作区范围" />
-            </Form.Item>
-          </Space.Compact>
-          <div className="runtime-field-grid">
-            <Form.Item name="engine_mode" label="Agent 运行时" className="compact-field">
-              <Select disabled options={[{ value: 'deepagents', label: 'Agent 生产运行时' }]} />
-            </Form.Item>
-            <Form.Item name={['runtime', 'backend_type']} label="状态后端" className="compact-field">
-              <Select disabled={!canEdit} options={[
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <StudioTags form={form} name="interrupt_tools" label="人工确认工具" disabled={!canEdit} placeholder="选择需要人工确认的工具" />
+            <StudioTags form={form} name={['permissions', 'allowed_paths']} label="可访问路径" disabled={!canEdit} placeholder="输入允许访问的服务工作区范围" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StudioSelect form={form} name="engine_mode" label="Agent 运行时" disabled options={[{ value: 'deepagents', label: 'Agent 生产运行时' }]} />
+            <StudioSelect
+              form={form}
+              name={['runtime', 'backend_type']}
+              label="状态后端"
+              disabled={!canEdit}
+              options={[
                 { value: 'filesystem', label: '工作区文件系统' },
                 { value: 'store', label: '持久状态库' },
                 { value: 'state', label: '会话内状态' },
-              ]} />
-            </Form.Item>
-            <Form.Item name={['context_config', 'max_rounds']} label="最大上下文轮次" className="compact-field">
-              <InputNumber disabled={!canEdit} min={1} max={100} />
-            </Form.Item>
+              ]}
+            />
+            <StudioNumber form={form} name={['context_config', 'max_rounds']} label="最大上下文轮次" disabled={!canEdit} min={1} max={100} />
           </div>
-          <div className="runtime-field-grid">
-            <Form.Item name={['model_override', 'temperature']} label="温度参数" className="compact-field"><InputNumber disabled={!canEdit} min={0} max={2} step={0.1} /></Form.Item>
-            <Form.Item name={['model_override', 'top_p']} label="Top-p 采样" className="compact-field"><InputNumber disabled={!canEdit} min={0} max={1} step={0.1} /></Form.Item>
-            <Form.Item name={['model_override', 'max_tokens']} label="最大输出 Token" className="compact-field"><InputNumber disabled={!canEdit} min={1} max={200000} /></Form.Item>
-            <Form.Item name="max_iterations" label="最大工具循环" className="compact-field"><InputNumber disabled={!canEdit} min={1} max={60} /></Form.Item>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <StudioNumber form={form} name={['model_override', 'temperature']} label="温度参数" disabled={!canEdit} min={0} max={2} step={0.1} />
+            <StudioNumber form={form} name={['model_override', 'top_p']} label="Top-p 采样" disabled={!canEdit} min={0} max={1} step={0.1} />
+            <StudioNumber form={form} name={['model_override', 'max_tokens']} label="最大输出 Token" disabled={!canEdit} min={1} max={200000} />
+            <StudioNumber form={form} name="max_iterations" label="最大工具循环" disabled={!canEdit} min={1} max={60} />
           </div>
-          <div className="runtime-field-grid">
-            <Form.Item name={['runtime', 'debug']} label="开启调试日志" valuePropName="checked" className="compact-field">
-              <Switch disabled={!canEdit} />
-            </Form.Item>
-            <Form.Item name={['runtime', 'checkpointing']} label="保存运行检查点" valuePropName="checked" className="compact-field">
-              <Switch disabled={!canEdit} />
-            </Form.Item>
-            <Form.Item name={['harness', 'disable_general_purpose_subagent']} label="禁用默认通用角色" valuePropName="checked" className="compact-field">
-              <Switch disabled={!canEdit} />
-            </Form.Item>
-            <Form.Item name={['filesystem', 'enabled']} label="工作区文件系统" valuePropName="checked" className="compact-field">
-              <Switch disabled={!canEdit} />
-            </Form.Item>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <StudioSwitch form={form} name={['runtime', 'debug']} label="开启调试日志" disabled={!canEdit} />
+            <StudioSwitch form={form} name={['runtime', 'checkpointing']} label="保存运行检查点" disabled={!canEdit} />
+            <StudioSwitch form={form} name={['harness', 'disable_general_purpose_subagent']} label="禁用默认通用角色" disabled={!canEdit} />
+            <StudioSwitch form={form} name={['filesystem', 'enabled']} label="工作区文件系统" disabled={!canEdit} />
           </div>
-          <div className="runtime-field-grid compact">
-            <Form.Item name={['filesystem', 'mode']} label="文件系统模式" className="compact-field">
-              <Select disabled={!canEdit} options={[
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StudioSelect
+              form={form}
+              name={['filesystem', 'mode']}
+              label="文件系统模式"
+              disabled={!canEdit}
+              options={[
                 { value: 'virtual', label: '隔离文件系统' },
                 { value: 'state', label: '状态目录映射' },
-              ]} />
-            </Form.Item>
-          </div>
-          <Form.Item name={['harness', 'excluded_tools']} label="屏蔽内置工具">
-            <Select
-              disabled={!canEdit}
-              mode="tags"
-              tokenSeparators={[',', '，']}
-              options={deepAgentBuiltinTools}
-              placeholder="选择要从运行时隐藏的内置工具"
+              ]}
             />
-          </Form.Item>
-          <Form.Item label="工具说明覆盖">
-            <Input.TextArea
+          </div>
+          <StudioTags
+            form={form}
+            name={['harness', 'excluded_tools']}
+            label="屏蔽内置工具"
+            disabled={!canEdit}
+            options={deepAgentBuiltinTools}
+            placeholder="选择要从运行时隐藏的内置工具"
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">工具说明覆盖</label>
+            <Textarea
               rows={5}
               value={harnessToolDescriptionText}
               disabled={!canEdit}
               onChange={(event) => onHarnessToolDescriptionChange(event.target.value)}
               placeholder='{"协作调度":"仅使用已配置的协作角色"}'
             />
-          </Form.Item>
-          <Form.List name={['routing', 'fixed_replies']}>
-            {(fields, { add, remove }) => (
-              <div className="rules-box">
-                <div className="rules-title">
-                  <span>命中式回复规则</span>
-                  <Button size="small" disabled={!canEdit} onClick={() => add({ keywords: [], reply: '' })}>添加规则</Button>
-                </div>
-                {fields.map((field) => (
-                  <div className="rule-row" key={field.key}>
-                    <Form.Item name={[field.name, 'keywords']} label="关键词">
-                      <Select disabled={!canEdit} mode="tags" tokenSeparators={[',', '，']} placeholder="输入后回车" />
-                    </Form.Item>
-                    <Form.Item name={[field.name, 'reply']} label="回复">
-                      <Input.TextArea rows={2} disabled={!canEdit} />
-                    </Form.Item>
-                    <Button danger disabled={!canEdit} onClick={() => remove(field.name)}>删除</Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Form.List>
+          </div>
+          <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground">命中式回复规则</span>
+              <Button size="sm" variant="outline" disabled={!canEdit} onClick={() => fixedReplies.add({ keywords: [], reply: '' })}>添加规则</Button>
+            </div>
+            {fixedReplies.items.map((_, index) => (
+              <FixedReplyRow key={index} form={form} index={index} canEdit={canEdit} onRemove={() => fixedReplies.remove(index)} />
+            ))}
+          </div>
         </div>
       </details>
-    </>
+    </div>
   );
 }
 
@@ -285,7 +325,7 @@ interface EvaluationPanelProps {
   canPublish: boolean;
   publishDisabledReason: string;
   publishActionLabel: string;
-  toolOptions: Array<{ value: string; label: string }>;
+  toolOptions: Option[];
   canEdit: boolean;
   isSuiteRunning: boolean;
   isPublishing: boolean;
@@ -315,7 +355,7 @@ interface EvaluationCaseRowProps {
   schemaText: string;
   recentRuns: AgentTestRun[];
   runtimePlanHash: string;
-  toolOptions: Array<{ value: string; label: string }>;
+  toolOptions: Option[];
   canEdit: boolean;
   isUpdatingCase: boolean;
   isRunningCase: boolean;
@@ -351,30 +391,30 @@ function EvaluationCaseRow({
   const freshness = testCaseFreshness(item, runtimePlanHash);
   const lastRunAt = item.last_run_at ? new Date(item.last_run_at).toLocaleString() : '未运行';
   const hasRunEvidence = Boolean(item.last_output || item.last_error || recentRuns.length);
+  const statusVariant: NonNullable<BadgeProps['variant']> = item.last_status === 'passed' ? 'success' : item.last_status === 'failed' ? 'destructive' : 'muted';
+  const freshnessVariant: NonNullable<BadgeProps['variant']> = freshness.color === 'success' ? 'success' : freshness.color === 'warning' ? 'warning' : 'muted';
 
   return (
-    <div className="case-row">
-      <div className="case-editor">
-        <div className="case-main-fields">
+    <div className="grid gap-3 rounded-lg border border-border bg-card p-3.5 lg:grid-cols-[1fr_auto]">
+      <div className="space-y-3">
+        <div className="space-y-2">
           <Input
             value={item.name}
             disabled={!canEdit}
             placeholder="验收用例名称"
             onChange={(event) => onSetLocalCase(item.id, { name: event.target.value })}
           />
-          <Input.TextArea
+          <Textarea
             rows={2}
             value={item.input_text}
             disabled={!canEdit}
             placeholder="输入一条需要稳定通过的真实业务请求"
             onChange={(event) => onSetLocalCase(item.id, { input_text: event.target.value })}
           />
-          <div className="case-row-controls">
-            <Select
+          <div className="grid gap-2 sm:grid-cols-2">
+            <TagsControl
               disabled={!canEdit}
-              mode="tags"
               value={item.expected_keywords}
-              tokenSeparators={[',', '，']}
               onChange={(value) => onSetLocalCase(item.id, {
                 expected_keywords: value,
                 assertion: { ...assertion, required_keywords: value },
@@ -384,24 +424,25 @@ function EvaluationCaseRow({
             <Select
               disabled={!canEdit}
               value={item.status}
-              options={[
-                { value: 'active', label: '纳入验收' },
-                { value: 'inactive', label: '停用验收' },
-              ]}
-              onChange={(value) => onSetLocalCase(item.id, { status: value })}
-            />
+              onValueChange={(value) => onSetLocalCase(item.id, { status: value })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">纳入验收</SelectItem>
+                <SelectItem value="inactive">停用验收</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <details className="case-advanced-details">
-          <summary>
-            <span>高级断言</span>
-            <em>工具、协作角色、事件与结构约束</em>
+        <details className="rounded-lg border border-border bg-background p-3">
+          <summary className="cursor-pointer space-y-0.5 text-sm">
+            <span className="font-medium text-foreground">高级断言</span>
+            <em className="ml-2 text-xs not-italic text-muted-foreground">工具、协作角色、事件与结构约束</em>
           </summary>
-          <div className="case-assertion-grid">
-            <Select
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <MultiSelectControl
               disabled={!canEdit}
-              mode="multiple"
               value={assertion.required_tools}
               options={toolOptions}
               onChange={(value) => onSetLocalCase(item.id, {
@@ -409,19 +450,16 @@ function EvaluationCaseRow({
               })}
               placeholder="必须调用工具"
             />
-            <Select
+            <TagsControl
               disabled={!canEdit}
-              mode="tags"
               value={assertion.required_subagents}
-              tokenSeparators={[',', '，']}
               onChange={(value) => onSetLocalCase(item.id, {
                 assertion: { ...assertion, required_subagents: value },
               })}
               placeholder="必须委派协作角色"
             />
-            <Select
+            <MultiSelectControl
               disabled={!canEdit}
-              mode="multiple"
               value={assertion.required_event_types}
               options={runtimeEventOptions}
               onChange={(value) => onSetLocalCase(item.id, {
@@ -429,7 +467,7 @@ function EvaluationCaseRow({
               })}
               placeholder="必须出现事件"
             />
-            <InputNumber
+            <NumberInput
               disabled={!canEdit}
               min={1}
               value={assertion.max_duration_ms}
@@ -439,7 +477,8 @@ function EvaluationCaseRow({
               placeholder="最大耗时 ms"
             />
           </div>
-          <Input.TextArea
+          <Textarea
+            className="mt-2"
             rows={4}
             value={schemaText || '{}'}
             disabled={!canEdit}
@@ -448,47 +487,49 @@ function EvaluationCaseRow({
           />
         </details>
 
-        <details className="case-run-details">
-          <summary>
-            <span>运行证据</span>
-            <em>{hasRunEvidence ? `最近结果 ${lastRunAt}` : '等待运行后生成证据'}</em>
+        <details className="rounded-lg border border-border bg-background p-3">
+          <summary className="cursor-pointer space-y-0.5 text-sm">
+            <span className="font-medium text-foreground">运行证据</span>
+            <em className="ml-2 text-xs not-italic text-muted-foreground">{hasRunEvidence ? `最近结果 ${lastRunAt}` : '等待运行后生成证据'}</em>
           </summary>
-          {item.last_output && <pre>{item.last_output}</pre>}
-          {item.last_error && <em className="case-error">{item.last_error}</em>}
-          {recentRuns.length > 0 ? (
-            <div className="test-run-history">
-              {recentRuns.map((run) => (
-                <div key={run.id}>
-                  {testRunStatusTag(run.status)}
-                  <span>配置 {shortHash(run.runtime_plan_hash)}</span>
-                  <span>{run.duration_ms || 0} ms</span>
-                  <span>{run.ended_at ? new Date(run.ended_at).toLocaleString() : '运行中'}</span>
-                  {run.agent_run_id && <button type="button" onClick={() => window.location.assign('/runs')}>{run.agent_run_id.slice(0, 12)}</button>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mini-empty compact">暂无运行记录。</div>
-          )}
+          <div className="mt-3 space-y-2">
+            {item.last_output && <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2.5 font-mono text-xs text-foreground">{item.last_output}</pre>}
+            {item.last_error && <em className="block text-xs not-italic text-destructive">{item.last_error}</em>}
+            {recentRuns.length > 0 ? (
+              <div className="space-y-1.5">
+                {recentRuns.map((run) => (
+                  <div key={run.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {testRunStatusTag(run.status)}
+                    <span>配置 {shortHash(run.runtime_plan_hash)}</span>
+                    <span>{run.duration_ms || 0} ms</span>
+                    <span>{run.ended_at ? new Date(run.ended_at).toLocaleString() : '运行中'}</span>
+                    {run.agent_run_id && (
+                      <button type="button" className="text-info hover:underline" onClick={() => window.location.assign('/runs')}>{run.agent_run_id.slice(0, 12)}</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <MiniEmpty>暂无运行记录。</MiniEmpty>
+            )}
+          </div>
         </details>
       </div>
 
-      <div className="case-actions">
-        <div className="case-result-stack">
-          <Tag color={item.last_status === 'passed' ? 'success' : item.last_status === 'failed' ? 'error' : 'default'}>
-            {testStatusLabel[item.last_status]}
-          </Tag>
-          <Tag color={freshness.color}>{freshness.label}</Tag>
+      <div className="flex flex-col gap-3 lg:w-48">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={statusVariant}>{testStatusLabel[item.last_status]}</Badge>
+          <Badge variant={freshnessVariant}>{freshness.label}</Badge>
           {item.last_runtime_plan_hash && (
-          <Tag color="geekblue">配置 {shortHash(item.last_runtime_plan_hash)}</Tag>
+            <Badge variant="info">配置 {shortHash(item.last_runtime_plan_hash)}</Badge>
           )}
-          <span>{lastRunAt}</span>
+          <span className="text-xs text-muted-foreground">{lastRunAt}</span>
         </div>
-        <div className="case-action-buttons">
+        <div className="flex flex-wrap gap-2">
           <Button
-            size="small"
-            loading={isUpdatingCase}
-            disabled={!canEdit}
+            size="sm"
+            variant="outline"
+            disabled={!canEdit || isUpdatingCase}
             onClick={() => onUpdateCase(item.id, {
               name: item.name,
               input_text: item.input_text,
@@ -497,12 +538,14 @@ function EvaluationCaseRow({
               status: item.status,
             })}
           >
-            保存
+            {isUpdatingCase ? <Spinner className="text-current" /> : null} 保存
           </Button>
-          <Button size="small" loading={isRunningCase} disabled={!canEdit} onClick={() => onRunCase(item.id)}>运行</Button>
-          <Popconfirm title="确定删除该验收用例？" disabled={!canEdit} onConfirm={() => onDeleteCase(item.id)}>
-            <Button size="small" danger disabled={!canEdit}>删除</Button>
-          </Popconfirm>
+          <Button size="sm" variant="outline" disabled={!canEdit || isRunningCase} onClick={() => onRunCase(item.id)}>
+            {isRunningCase ? <Spinner className="text-current" /> : null} 运行
+          </Button>
+          <Confirm title="确定删除该验收用例？" disabled={!canEdit} onConfirm={() => onDeleteCase(item.id)}>
+            <Button size="sm" variant="destructive" disabled={!canEdit}>删除</Button>
+          </Confirm>
         </div>
       </div>
     </div>
@@ -548,70 +591,65 @@ export function EvaluationPanel({
   onDeleteCase,
 }: EvaluationPanelProps) {
   return (
-    <>
-      <div className="studio-panel-block">
-        <div className="builder-section-title">
-          <span>验证服务配置</span>
-          <p>用真实业务输入验证服务配置，输出和运行轨迹会形成证据。</p>
-        </div>
-        <div className="builder-test">
-          <Input.TextArea
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionTitle title="验证服务配置" description="用真实业务输入验证服务配置，输出和运行轨迹会形成证据。" />
+        <div className="space-y-2">
+          <Textarea
             rows={3}
             value={testInput}
             disabled={!canEdit}
             onChange={(event) => onTestInputChange(event.target.value)}
             placeholder="输入一条真实业务请求，例如：请整理这段材料中的风险点"
           />
-          <Button loading={testRunning} disabled={!canEdit} title={canEdit ? '提交业务验证任务' : '需编辑权限'} onClick={onRunBuilderTest}>提交</Button>
-          <div className="test-output">{testOutput || '业务验证输出会显示在这里。'}</div>
+          <Button variant="outline" disabled={!canEdit || testRunning} title={canEdit ? '提交业务验证任务' : '需编辑权限'} onClick={onRunBuilderTest}>
+            {testRunning ? <Spinner className="text-current" /> : null} 提交
+          </Button>
+          <div className="min-h-[3rem] whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">{testOutput || '业务验证输出会显示在这里。'}</div>
         </div>
       </div>
 
-      <div className="studio-panel-block">
-        <div className="builder-section-title">
-          <span>验收套件</span>
-          <p>沉淀可重复运行的业务样本，用来判断当前配置是否可以生成上线版本。</p>
-        </div>
+      <div className="space-y-3">
+        <SectionTitle title="验收套件" description="沉淀可重复运行的业务样本，用来判断当前配置是否可以生成上线版本。" />
         {editingAgent ? (
-          <div className="case-suite">
-            <div className="case-suite-head">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-3.5">
               <div>
-                <strong>{passedCases}/{activeCases}</strong>
-                <span>纳入验收用例通过</span>
+                <strong className="block text-lg font-semibold text-foreground">{passedCases}/{activeCases}</strong>
+                <span className="text-xs text-muted-foreground">纳入验收用例通过</span>
               </div>
               <div>
-                <strong>{regressionCoveragePercent}%</strong>
-                <span>配置覆盖</span>
+                <strong className="block text-lg font-semibold text-foreground">{regressionCoveragePercent}%</strong>
+                <span className="text-xs text-muted-foreground">配置覆盖</span>
               </div>
               <div>
-                <strong>{regressionFailed + regressionStale + regressionUntested}</strong>
-                <span>上线未通过用例</span>
+                <strong className="block text-lg font-semibold text-foreground">{regressionFailed + regressionStale + regressionUntested}</strong>
+                <span className="text-xs text-muted-foreground">上线未通过用例</span>
               </div>
-              <Space wrap>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Button
-                  size="small"
-                  icon={<PlayCircle size={14} />}
-                  loading={isSuiteRunning}
-                  disabled={!canEdit || !cases.some((item) => item.status === 'active')}
+                  size="sm"
+                  variant="outline"
+                  disabled={!canEdit || isSuiteRunning || !cases.some((item) => item.status === 'active')}
                   title={canEdit ? '验证服务配置' : '需编辑权限'}
                   onClick={onRunSuite}
                 >
-                  验证服务配置
+                  {isSuiteRunning ? <Spinner className="text-current" /> : <PlayCircle />} 验证服务配置
                 </Button>
                 <Button
-                  size="small"
-                  type="primary"
-                  loading={isPublishing}
-                  disabled={!canEdit || !canPublish}
+                  size="sm"
+                  disabled={!canEdit || !canPublish || isPublishing}
                   onClick={onPublish}
                 >
-                  {publishActionLabel}
+                  {isPublishing ? <Spinner className="text-current" /> : null} {publishActionLabel}
                 </Button>
-                <Button size="small" loading={isCreatingCase} disabled={!canEdit} onClick={onCreateCase}>添加验收用例</Button>
-              </Space>
+                <Button size="sm" variant="outline" disabled={!canEdit || isCreatingCase} onClick={onCreateCase}>
+                  {isCreatingCase ? <Spinner className="text-current" /> : null} 添加验收用例
+                </Button>
+              </div>
             </div>
-            <div className={canPublish ? 'evaluation-release-callout ready' : 'evaluation-release-callout'}>
-              <CheckCircle2 size={15} />
+            <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm', canPublish ? 'border-success/30 bg-success/8 text-success' : 'border-border bg-muted/30 text-muted-foreground')}>
+              <CheckCircle2 className="size-4 shrink-0" />
               <span>
                 {canPublish
                   ? `${publishActionLabel}条件已满足。`
@@ -619,16 +657,23 @@ export function EvaluationPanel({
               </span>
             </div>
             {coverage && (
-              <div className="regression-control-plane">
-                <div className="regression-control-metrics">
-                  <div><span>失败</span><strong>{coverage.failed}</strong></div>
-                  <div><span>运行中</span><strong>{coverage.running}</strong></div>
-                  <div><span>需重跑</span><strong>{coverage.stale}</strong></div>
-                  <div><span>未运行</span><strong>{coverage.untested}</strong></div>
-                  <div><span>停用验收</span><strong>{coverage.inactive_cases}</strong></div>
-                  <div><span>配置版本</span><strong>{shortHash(coverage.runtime_plan_hash)}</strong></div>
+              <div className="space-y-3 rounded-lg border border-border bg-card p-3.5">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {[
+                    { label: '失败', value: coverage.failed },
+                    { label: '运行中', value: coverage.running },
+                    { label: '需重跑', value: coverage.stale },
+                    { label: '未运行', value: coverage.untested },
+                    { label: '停用验收', value: coverage.inactive_cases },
+                    { label: '配置版本', value: shortHash(coverage.runtime_plan_hash) },
+                  ].map((stat) => (
+                    <div key={stat.label} className="rounded-md bg-muted/40 px-2 py-1.5 text-center">
+                      <span className="block text-xs text-muted-foreground">{stat.label}</span>
+                      <strong className="text-sm font-semibold text-foreground">{stat.value}</strong>
+                    </div>
+                  ))}
                 </div>
-                <div className="regression-case-queue">
+                <div className="space-y-2">
                   {coverage.cases
                     .filter((item) => (
                       item.status === 'active'
@@ -638,37 +683,38 @@ export function EvaluationPanel({
                     ))
                     .slice(0, 6)
                     .map((item) => (
-                      <div key={item.id}>
-                        <div>
+                      <div key={item.id} className="space-y-1 rounded-md border border-border bg-background p-2.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {regressionResultTag(item.result_status)}
                           {regressionFreshnessTag(item.freshness)}
-                          <strong>{item.name}</strong>
+                          <strong className="text-sm font-semibold text-foreground">{item.name}</strong>
                         </div>
-                        <span>{item.input_preview || '无输入预览'}</span>
-                        <em>{item.last_run_at ? new Date(item.last_run_at).toLocaleString() : '未运行'}</em>
+                        <span className="block text-xs text-muted-foreground">{item.input_preview || '无输入预览'}</span>
+                        <em className="block text-xs not-italic text-muted-foreground">{item.last_run_at ? new Date(item.last_run_at).toLocaleString() : '未运行'}</em>
                       </div>
                     ))}
                   {!coverage.blockers.length && (
-                    <div className="passed">
-                      <CheckCircle2 size={15} />
-                      <strong>纳入验收的用例均匹配服务配置</strong>
+                    <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/8 px-2.5 py-2 text-sm text-success">
+                      <CheckCircle2 className="size-4" />
+                      <strong className="font-medium">纳入验收的用例均匹配服务配置</strong>
                     </div>
                   )}
                 </div>
               </div>
             )}
             {suiteRuns.length > 0 && (
-              <div className="suite-run-strip">
-                {suiteRuns.slice(0, 3).map((item) => (
-                  <div key={item.id}>
-                    <strong>{item.passed}/{item.total}</strong>
-                    <span>{item.status === 'completed' ? '通过' : item.status === 'failed' ? '失败' : '运行中'}</span>
-                    <Tag color={item.status === 'completed' ? 'success' : item.status === 'failed' ? 'error' : 'processing'}>
-                      配置 {shortHash(item.runtime_plan_hash)}
-                    </Tag>
-                    <em>{item.ended_at ? new Date(item.ended_at).toLocaleString() : '运行中'}</em>
-                  </div>
-                ))}
+              <div className="grid gap-2 sm:grid-cols-3">
+                {suiteRuns.slice(0, 3).map((item) => {
+                  const variant: NonNullable<BadgeProps['variant']> = item.status === 'completed' ? 'success' : item.status === 'failed' ? 'destructive' : 'info';
+                  return (
+                    <div key={item.id} className="space-y-1 rounded-lg border border-border bg-card p-3">
+                      <strong className="block text-sm font-semibold text-foreground">{item.passed}/{item.total}</strong>
+                      <span className="block text-xs text-muted-foreground">{item.status === 'completed' ? '通过' : item.status === 'failed' ? '失败' : '运行中'}</span>
+                      <Badge variant={variant}>配置 {shortHash(item.runtime_plan_hash)}</Badge>
+                      <em className="block text-xs not-italic text-muted-foreground">{item.ended_at ? new Date(item.ended_at).toLocaleString() : '运行中'}</em>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {cases.map((item) => (
@@ -689,12 +735,12 @@ export function EvaluationPanel({
                 onDeleteCase={onDeleteCase}
               />
             ))}
-            {!cases.length && <div className="mini-empty">暂无验收用例</div>}
+            {!cases.length && <MiniEmpty>暂无验收用例</MiniEmpty>}
           </div>
         ) : (
-          <div className="mini-empty">保存配置后可创建验收用例。</div>
+          <MiniEmpty>保存配置后可创建验收用例。</MiniEmpty>
         )}
       </div>
-    </>
+    </div>
   );
 }

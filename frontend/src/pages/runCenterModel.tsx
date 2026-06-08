@@ -1,4 +1,4 @@
-import { Tag } from 'antd';
+import { Badge } from '@/components/ui/badge';
 import { productTerms, runtimeActorLabel, visibleRuntimeText } from '../services/productLanguage';
 import type {
   AgentRun,
@@ -207,31 +207,67 @@ export function shortAuditUser(value?: string | null) {
   return value.length > 14 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
 }
 
+// Badge variant helpers mapping from antd colors to new Badge variants
+function runStatusVariant(status: string): 'success' | 'destructive' | 'info' | 'warning' | 'muted' | 'outline' {
+  if (status === 'completed') return 'success';
+  if (status === 'failed' || status === 'blocked' || status === 'stale') return 'destructive';
+  if (status === 'running') return 'info';
+  if (status === 'cancelled') return 'warning';
+  return 'outline';
+}
+
+function runtimeSourceVariant(source?: string): 'default' | 'info' | 'warning' | 'outline' {
+  if (source === 'release') return 'info';
+  if (source === 'preview' || source === 'publish') return 'warning';
+  return 'outline';
+}
+
+function entrypointVariant(entrypoint?: string): 'default' | 'info' | 'outline' {
+  if (entrypoint === 'responses') return 'info';
+  return 'outline';
+}
+
+function runSourceVariant(source?: string): 'success' | 'warning' | 'info' | 'default' | 'outline' {
+  if (source === 'runtime') return 'success';
+  if (source === 'test_case_release') return 'info';
+  if (source === 'test_case' || source === 'test_case_preview' || source === 'preview') return 'warning';
+  if (source === 'rerun') return 'default';
+  return 'outline';
+}
+
 export function runStatusTag(status: string) {
   const meta = runStatusMeta[status] || { label: status || '-', color: 'default' as const };
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  return <Badge variant={runStatusVariant(status)}>{meta.label}</Badge>;
 }
 
 export function releaseTag(run: AgentRun) {
   const meta = runtimeSourceMeta[run.runtime_source || ''] || { label: run.runtime_source || '存量记录' };
-  if (run.release_id && run.runtime_source === 'release') return <Tag color="blue">上线版本 v{run.agent_version || 1}</Tag>;
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  if (run.release_id && run.runtime_source === 'release') {
+    return <Badge variant="info">上线版本 v{run.agent_version || 1}</Badge>;
+  }
+  return <Badge variant={runtimeSourceVariant(run.runtime_source)}>{meta.label}</Badge>;
 }
 
 export function entrypointTag(run: AgentRun) {
   const meta = entrypointMeta[run.entrypoint || ''] || { label: run.entrypoint || '未知入口' };
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  return <Badge variant={entrypointVariant(run.entrypoint)}>{meta.label}</Badge>;
 }
 
 export function runSourceTag(run: AgentRun) {
   const meta = runSourceMeta[run.run_source || ''] || { label: run.run_source || '运行' };
-  return <Tag color={meta.color}>{meta.label}</Tag>;
+  return <Badge variant={runSourceVariant(run.run_source)}>{meta.label}</Badge>;
 }
 
 export function incidentSeverityColor(severity: RunIncidentItem['severity']) {
   if (severity === 'critical') return 'error';
   if (severity === 'warning') return 'warning';
   return 'default';
+}
+
+export function incidentSeverityVariant(severity: RunIncidentItem['severity']): 'destructive' | 'warning' | 'outline' {
+  if (severity === 'critical') return 'destructive';
+  if (severity === 'warning') return 'warning';
+  return 'outline';
 }
 
 export function incidentQueueStatus(key: string) {
@@ -270,6 +306,10 @@ export function llmActorTagColor(record: LLMInvocationLog) {
   return record.runtime_scope === 'subagent' || record.subagent_name ? 'blue' : 'default';
 }
 
+export function llmActorVariant(record: LLMInvocationLog): 'info' | 'outline' {
+  return record.runtime_scope === 'subagent' || record.subagent_name ? 'info' : 'outline';
+}
+
 export function eventTone(event: RunTraceEvent) {
   if (event.phase === 'error' || event.status === 'error') return 'danger';
   if (event.phase === 'complete' || event.status === 'success') return 'success';
@@ -278,13 +318,19 @@ export function eventTone(event: RunTraceEvent) {
   return 'neutral';
 }
 
-function eventColor(event: RunTraceEvent) {
-  if (event.phase === 'error' || event.status === 'error') return 'red';
-  if (event.phase === 'complete' || event.status === 'success') return 'green';
-  if (event.phase === 'tool') return 'purple';
-  if (event.phase === 'subagent') return 'blue';
-  if (event.phase === 'output') return 'cyan';
-  return 'default';
+function eventPhaseVariant(event: RunTraceEvent): 'destructive' | 'success' | 'default' | 'info' | 'muted' {
+  if (event.phase === 'error' || event.status === 'error') return 'destructive';
+  if (event.phase === 'complete' || event.status === 'success') return 'success';
+  if (event.phase === 'tool') return 'default';
+  if (event.phase === 'subagent') return 'info';
+  if (event.phase === 'output') return 'muted';
+  return 'muted';
+}
+
+function eventStatusVariant(event: RunTraceEvent): 'success' | 'destructive' | 'outline' {
+  if (event.status === 'success') return 'success';
+  if (event.status === 'error') return 'destructive';
+  return 'outline';
 }
 
 function eventDisplayLabel(event: RunTraceEvent, index: number) {
@@ -306,29 +352,35 @@ export function renderEvent(event: RunTraceEvent, index: number) {
   const callId = eventText(event.call_id);
   const llmContracts = event.type === 'llm_contracts' ? llmContractItems(event) : [];
   const llmUsageBreakdown = event.type === 'llm_usage' ? llmUsageBreakdownItems(event) : [];
+  const tone = eventTone(event);
 
   return (
-    <article className={`trace-event ${eventTone(event)}`}>
-      <header className="trace-event-title">
-        <span className="trace-seq">#{event.seq || index + 1}</span>
-        <Tag color={eventColor(event)}>{phaseLabels[event.phase] || event.phase}</Tag>
-        <strong>{eventDisplayLabel(event, index)}</strong>
-        {resource && <Tag>{visibleRuntimeText(resource)}</Tag>}
-        <Tag color={event.status === 'success' ? 'success' : event.status === 'error' ? 'error' : 'default'}>
-          {traceStatusLabels[event.status] || event.status}
-        </Tag>
-        {event.duration_ms > 0 && <Tag color="geekblue">{formatDuration(event.duration_ms)}</Tag>}
-        {event.parent_seq && <Tag color="default">关联 #{event.parent_seq}</Tag>}
-      </header>
-      <div className="trace-event-body">
-        {subagent && <span>{productTerms.workRole}：{subagent}</span>}
-        {task && <p>{task}</p>}
+    <article className={`rounded-lg border p-3 space-y-2 ${
+      tone === 'danger' ? 'border-destructive/40 bg-destructive/5' :
+      tone === 'success' ? 'border-success/30 bg-success/5' :
+      tone === 'tool' ? 'border-primary/20 bg-primary/5' :
+      tone === 'handoff' ? 'border-info/30 bg-info/5' :
+      'border-border bg-card'
+    }`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground font-mono">#{event.seq || index + 1}</span>
+        <Badge variant={eventPhaseVariant(event)}>{phaseLabels[event.phase] || event.phase}</Badge>
+        <strong className="text-sm font-medium">{eventDisplayLabel(event, index)}</strong>
+        {resource && <Badge variant="outline">{visibleRuntimeText(resource)}</Badge>}
+        <Badge variant={eventStatusVariant(event)}>{traceStatusLabels[event.status] || event.status}</Badge>
+        {event.duration_ms > 0 && <Badge variant="info">{formatDuration(event.duration_ms)}</Badge>}
+        {event.parent_seq && <Badge variant="muted">关联 #{event.parent_seq}</Badge>}
+      </div>
+      <div className="space-y-1.5 text-sm">
+        {subagent && <span className="text-muted-foreground">{productTerms.workRole}：{subagent}</span>}
+        {task && <p className="text-foreground">{task}</p>}
         {llmContracts.length > 0 && (
-          <div className="runtime-chip-grid trace-contract-grid">
+          <div className="grid grid-cols-2 gap-2">
             {llmContracts.map((item, contractIndex) => (
-              <div key={`${String(item.scope || 'scope')}-${String(item.subagent || contractIndex)}-${String(item.model || contractIndex)}`}>
-                <strong>{String(item.model || '-')}</strong>
-                <span>
+              <div key={`${String(item.scope || 'scope')}-${String(item.subagent || contractIndex)}-${String(item.model || contractIndex)}`}
+                className="rounded border border-border bg-muted/40 px-2.5 py-1.5">
+                <strong className="block text-xs font-semibold">{String(item.model || '-')}</strong>
+                <span className="text-xs text-muted-foreground">
                   {runtimeActorLabel(String(item.scope || 'main'), item.subagent ? String(item.subagent) : undefined)}
                   {' · '}
                   {String(item.llm_name || item.llm_config_id || '-')}
@@ -338,11 +390,12 @@ export function renderEvent(event: RunTraceEvent, index: number) {
           </div>
         )}
         {llmUsageBreakdown.length > 0 && (
-          <div className="runtime-chip-grid trace-contract-grid">
+          <div className="grid grid-cols-2 gap-2">
             {llmUsageBreakdown.map((item, usageIndex) => (
-              <div key={`${String(item.subagent || 'main')}-${String(item.model || usageIndex)}`}>
-                <strong>{formatNumber(Number(item.total_tokens || 0))}</strong>
-                <span>
+              <div key={`${String(item.subagent || 'main')}-${String(item.model || usageIndex)}`}
+                className="rounded border border-border bg-muted/40 px-2.5 py-1.5">
+                <strong className="block text-xs font-semibold">{formatNumber(Number(item.total_tokens || 0))}</strong>
+                <span className="text-xs text-muted-foreground">
                   {runtimeActorLabel(item.subagent ? 'subagent' : 'main', item.subagent ? String(item.subagent) : undefined)}
                   {' · '}
                   {String(item.model || '-')}
@@ -354,23 +407,23 @@ export function renderEvent(event: RunTraceEvent, index: number) {
           </div>
         )}
         {input && (
-          <details className="trace-event-io">
-            <summary>输入</summary>
-            <pre>{input}</pre>
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">输入</summary>
+            <pre className="mt-1 rounded bg-muted/60 p-2 text-xs overflow-x-auto">{input}</pre>
           </details>
         )}
         {output && (
-          <details className="trace-event-io">
-            <summary>输出</summary>
-            <pre>{output}</pre>
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">输出</summary>
+            <pre className="mt-1 rounded bg-muted/60 p-2 text-xs overflow-x-auto">{output}</pre>
           </details>
         )}
-        <footer>
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1 border-t border-border/50">
           {callId && <small>调用 {shortCallId(callId)}</small>}
           {event.step_id && event.step_id !== callId && <small>步骤证据 {event.step_id}</small>}
           {event.elapsed_ms > 0 && <small>开始后 {formatDuration(event.elapsed_ms)}</small>}
           {event.timestamp && <small>{formatDate(event.timestamp)}</small>}
-        </footer>
+        </div>
       </div>
     </article>
   );
@@ -426,6 +479,13 @@ export function auditSourceColor(value?: string | null) {
   if (value === 'runtime') return 'blue';
   if (value === 'test') return 'purple';
   return 'default';
+}
+
+export function auditSourceVariant(value?: string | null): 'info' | 'default' | 'outline' {
+  if (value === 'manual') return 'info';
+  if (value === 'runtime') return 'info';
+  if (value === 'test') return 'default';
+  return 'outline';
 }
 
 export function auditSummary(record: ToolInvocationAudit) {

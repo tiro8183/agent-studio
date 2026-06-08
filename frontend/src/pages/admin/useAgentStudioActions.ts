@@ -1,7 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { useMutation, type QueryClient } from '@tanstack/react-query';
-import { App } from 'antd';
-import type { FormInstance, UploadProps } from 'antd';
+import { toast } from '@/lib/toast';
 import { api, responseStreamErrorMessage, streamAgentPreviewResponses } from '../../services/api';
 import type {
   Agent,
@@ -14,11 +13,12 @@ import type {
 import { agentContractPayloadFromForm, emptyAssertion, formatBytes, mergeAssertion } from './agentStudioModel';
 import type { StudioInspectorState } from './AgentStudioChrome';
 import type { StudioStepKey } from './agentStudioModel';
+import type { StudioFormShim } from './studioForm';
 
 interface UseAgentStudioActionsParams {
   editingAgent: Agent | null;
   canEdit: boolean;
-  agentForm: FormInstance;
+  agentForm: StudioFormShim;
   agentOutputSchemaText: string;
   harnessToolDescriptionText: string;
   caseSchemaTexts: Record<string, string>;
@@ -52,7 +52,7 @@ export function useAgentStudioActions({
   invalidateAgentTestData,
   onRefresh,
 }: UseAgentStudioActionsParams) {
-  const { message } = App.useApp();
+  const message = toast;
   const [testInput, setTestInput] = useState('');
   const [testOutput, setTestOutput] = useState('');
   const [testRunning, setTestRunning] = useState(false);
@@ -325,40 +325,37 @@ export function useAgentStudioActions({
     }
   };
 
-  const knowledgeUploadProps: UploadProps = {
-    accept: (uploadQuota?.allowed_extensions || []).join(','),
-    beforeUpload: async (file) => {
-      if (!canEdit) {
-        warnReadOnly();
-        return false;
-      }
-      if (!editingAgent) {
-        message.warning('保存配置后再上传业务资料');
-        return false;
-      }
-      const maxBytes = uploadQuota?.knowledge_upload_max_bytes || 0;
-      if (maxBytes > 0 && file.size > maxBytes) {
-        message.error(`单个业务资料不能超过 ${formatBytes(maxBytes)}`);
-        return false;
-      }
-      const remainingBytes = uploadQuota?.remaining_bytes ?? 0;
-      if (uploadQuota && file.size > remainingBytes) {
-        message.error(`组织上传配额不足，当前剩余 ${formatBytes(remainingBytes)}`);
-        return false;
-      }
-      try {
-        await api.uploadKnowledge(editingAgent.id, file);
-        message.success('业务资料已上传');
-        queryClient.invalidateQueries({ queryKey: ['knowledge', editingAgent.id] });
-        queryClient.invalidateQueries({ queryKey: ['knowledge-counts'] });
-        queryClient.invalidateQueries({ queryKey: ['upload-quota'] });
-        invalidateAgentGovernance(editingAgent.id);
-      } catch (error) {
-        message.error(error instanceof Error ? error.message : '业务资料上传失败');
-      }
-      return false;
-    },
-    showUploadList: false,
+  const knowledgeAccept = (uploadQuota?.allowed_extensions || []).join(',');
+
+  const uploadKnowledgeFile = async (file: File) => {
+    if (!canEdit) {
+      warnReadOnly();
+      return;
+    }
+    if (!editingAgent) {
+      message.warning('保存配置后再上传业务资料');
+      return;
+    }
+    const maxBytes = uploadQuota?.knowledge_upload_max_bytes || 0;
+    if (maxBytes > 0 && file.size > maxBytes) {
+      message.error(`单个业务资料不能超过 ${formatBytes(maxBytes)}`);
+      return;
+    }
+    const remainingBytes = uploadQuota?.remaining_bytes ?? 0;
+    if (uploadQuota && file.size > remainingBytes) {
+      message.error(`组织上传配额不足，当前剩余 ${formatBytes(remainingBytes)}`);
+      return;
+    }
+    try {
+      await api.uploadKnowledge(editingAgent.id, file);
+      message.success('业务资料已上传');
+      queryClient.invalidateQueries({ queryKey: ['knowledge', editingAgent.id] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['upload-quota'] });
+      invalidateAgentGovernance(editingAgent.id);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '业务资料上传失败');
+    }
   };
 
   const previewKnowledge = async (documentId: string) => {
@@ -414,7 +411,8 @@ export function useAgentStudioActions({
     runtimeManifest,
     preflightOpen,
     agentPreflight,
-    knowledgeUploadProps,
+    knowledgeAccept,
+    uploadKnowledgeFile,
     saveAgent,
     deactivateAgent,
     releaseActionPending: publishAgent.isPending || enableAgentRelease.isPending,
