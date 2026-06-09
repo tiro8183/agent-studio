@@ -171,10 +171,10 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
   const loading = agents.isLoading || runs.isLoading;
 
   return (
-    <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
+    <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col gap-5">
       {/* Intro */}
-      <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <RadioTower className="size-3.5" /> 工作区
           </div>
@@ -199,7 +199,7 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
       </section>
 
       {/* Stat tiles */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-xl" />)
           : tiles.map((tile) => (
@@ -223,10 +223,10 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
             ))}
       </section>
 
-      {/* Workbench */}
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      {/* Workbench — fills remaining height */}
+      <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
         {/* Agent queue */}
-        <Card className="overflow-hidden">
+        <Card className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-border p-5">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Agent 服务队列</h2>
@@ -238,10 +238,10 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
               <PenLine /> 进入 Studio
             </Button>
           </div>
-          <div className="divide-y divide-border">
+          <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
             {loading && (
               <div className="space-y-3 p-5">
-                {Array.from({ length: 3 }).map((_, i) => (
+                {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-12" />
                 ))}
               </div>
@@ -279,15 +279,25 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
                 );
               })}
             {!loading && !priorityAgents.length && (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                暂无待上线 Agent。新建 Agent 后，可在这里完成配置、验收和上线。
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+                <div className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                  <PenLine className="size-4" />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  暂无待上线 Agent。新建后可在这里完成配置、验收和上线。
+                </div>
+                {canEdit && (
+                  <Button size="sm" className="mt-1" onClick={() => navigate('/agents')}>
+                    新建服务
+                  </Button>
+                )}
               </div>
             )}
           </div>
         </Card>
 
         {/* Run evidence */}
-        <Card className="overflow-hidden">
+        <Card className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-border p-5">
             <div>
               <h2 className="text-sm font-semibold text-foreground">运行证据</h2>
@@ -300,7 +310,7 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
             </Button>
           </div>
 
-          <div className="space-y-4 p-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <div
               className={cn(
                 'flex items-center justify-between gap-3 rounded-lg border p-3.5',
@@ -366,11 +376,11 @@ export default function HomePage({ currentUser }: WorkspacePageContext) {
                   最近调用
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {runList.length ? `${Math.min(runList.length, 5)} 条` : '暂无记录'}
+                  {runList.length ? `${Math.min(runList.length, 8)} 条` : '暂无记录'}
                 </span>
               </div>
               <div className="space-y-1">
-                {runList.slice(0, 5).map((run) => (
+                {runList.slice(0, 8).map((run) => (
                   <button
                     key={run.id}
                     type="button"
