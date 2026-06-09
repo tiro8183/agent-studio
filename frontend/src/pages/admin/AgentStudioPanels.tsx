@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CheckCircle2, FileText, PlayCircle, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, PlayCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -66,6 +66,23 @@ function SectionTitle({ title, description }: { title: React.ReactNode; descript
 
 function MiniEmpty({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn('rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground', className)}>{children}</div>;
+}
+
+function formatDateTime(value?: string | null) {
+  return value ? new Date(value).toLocaleString() : '未运行';
+}
+
+function splitAssertionError(value?: string | null) {
+  return (value || '')
+    .split(/[；;]\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function focusRunEvidence(runId?: string | null) {
+  if (runId) sessionStorage.setItem('agent_forge_focus_run', runId);
+  window.history.pushState({}, '', '/runs');
+  window.dispatchEvent(new Event('popstate'));
 }
 
 interface KnowledgePanelProps {
@@ -389,14 +406,48 @@ function EvaluationCaseRow({
 }: EvaluationCaseRowProps) {
   const assertion = mergeAssertion(item.assertion, item.expected_keywords);
   const freshness = testCaseFreshness(item, runtimePlanHash);
-  const lastRunAt = item.last_run_at ? new Date(item.last_run_at).toLocaleString() : '未运行';
+  const lastRunAt = formatDateTime(item.last_run_at);
   const hasRunEvidence = Boolean(item.last_output || item.last_error || recentRuns.length);
   const statusVariant: NonNullable<BadgeProps['variant']> = item.last_status === 'passed' ? 'success' : item.last_status === 'failed' ? 'destructive' : 'muted';
   const freshnessVariant: NonNullable<BadgeProps['variant']> = freshness.color === 'success' ? 'success' : freshness.color === 'warning' ? 'warning' : 'muted';
+  const latestRun = recentRuns[0];
+  const assertionErrors = splitAssertionError(item.last_error || latestRun?.error || latestRun?.assertion_errors?.join('；'));
+  const isFailed = item.last_status === 'failed' || latestRun?.status === 'failed' || latestRun?.status === 'error';
 
   return (
     <div className="grid gap-3 rounded-lg border border-border bg-card p-3.5 lg:grid-cols-[1fr_auto]">
       <div className="space-y-3">
+        {isFailed && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+            <div className="flex flex-wrap items-center gap-2">
+              <AlertTriangle className="size-4 shrink-0" />
+              <strong className="font-semibold">验收未通过</strong>
+              <Badge variant="destructive">配置 {shortHash(item.last_runtime_plan_hash || latestRun?.runtime_plan_hash)}</Badge>
+              <span className="text-xs text-destructive/80">{lastRunAt}</span>
+            </div>
+            <div className="mt-2 grid gap-1.5">
+              {assertionErrors.length ? assertionErrors.map((error) => (
+                <span key={error} className="block">{error}</span>
+              )) : (
+                <span>本次运行未满足验收断言，请查看运行证据。</span>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              {assertion.required_tools.length > 0 && <Badge variant="warning">要求工具 {assertion.required_tools.join('、')}</Badge>}
+              {assertion.required_subagents.length > 0 && <Badge variant="warning">要求子代理 {assertion.required_subagents.join('、')}</Badge>}
+              {assertion.required_event_types.length > 0 && <Badge variant="warning">要求事件 {assertion.required_event_types.join('、')}</Badge>}
+              {(latestRun?.agent_run_id || item.last_run_id) && (
+                <button
+                  type="button"
+                  className="ml-auto text-info hover:underline"
+                  onClick={() => focusRunEvidence(latestRun?.agent_run_id || item.last_run_id)}
+                >
+                  打开 Run Evidence
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <Input
             value={item.name}
@@ -504,7 +555,7 @@ function EvaluationCaseRow({
                     <span>{run.duration_ms || 0} ms</span>
                     <span>{run.ended_at ? new Date(run.ended_at).toLocaleString() : '运行中'}</span>
                     {run.agent_run_id && (
-                      <button type="button" className="text-info hover:underline" onClick={() => window.location.assign('/runs')}>{run.agent_run_id.slice(0, 12)}</button>
+                      <button type="button" className="text-info hover:underline" onClick={() => focusRunEvidence(run.agent_run_id)}>{run.agent_run_id.slice(0, 12)}</button>
                     )}
                   </div>
                 ))}
@@ -590,6 +641,12 @@ export function EvaluationPanel({
   onRunCase,
   onDeleteCase,
 }: EvaluationPanelProps) {
+  const failedCoverageCases = (coverage?.cases || []).filter((item) => (
+    item.status === 'active'
+    && (item.freshness !== 'current' || ['failed', 'error', 'running', 'untested'].includes(item.result_status))
+  ));
+  const primaryFailure = failedCoverageCases.find((item) => item.result_status === 'failed' || item.result_status === 'error') || failedCoverageCases[0];
+
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -631,10 +688,10 @@ export function EvaluationPanel({
                   size="sm"
                   variant="outline"
                   disabled={!canEdit || isSuiteRunning || !cases.some((item) => item.status === 'active')}
-                  title={canEdit ? '验证服务配置' : '需编辑权限'}
+                  title={canEdit ? '运行所有启用验收用例' : '需编辑权限'}
                   onClick={onRunSuite}
                 >
-                  {isSuiteRunning ? <Spinner className="text-current" /> : <PlayCircle />} 验证服务配置
+                  {isSuiteRunning ? <Spinner className="text-current" /> : <PlayCircle />} 运行验收套件
                 </Button>
                 <Button
                   size="sm"
@@ -649,7 +706,7 @@ export function EvaluationPanel({
               </div>
             </div>
             <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm', canPublish ? 'border-success/30 bg-success/8 text-success' : 'border-border bg-muted/30 text-muted-foreground')}>
-              <CheckCircle2 className="size-4 shrink-0" />
+              {canPublish ? <CheckCircle2 className="size-4 shrink-0" /> : <AlertTriangle className="size-4 shrink-0 text-warning" />}
               <span>
                 {canPublish
                   ? `${publishActionLabel}条件已满足。`
@@ -673,6 +730,34 @@ export function EvaluationPanel({
                     </div>
                   ))}
                 </div>
+                {primaryFailure && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      <strong className="font-semibold">当前阻断：{primaryFailure.name}</strong>
+                      {regressionResultTag(primaryFailure.result_status)}
+                      {regressionFreshnessTag(primaryFailure.freshness)}
+                      <Badge variant="info">配置 {shortHash(primaryFailure.last_runtime_plan_hash || coverage.runtime_plan_hash)}</Badge>
+                    </div>
+                    <div className="mt-2 grid gap-1.5">
+                      {splitAssertionError(primaryFailure.last_error).map((error) => (
+                        <span key={error}>{error}</span>
+                      ))}
+                      {!primaryFailure.last_error && <span>该用例尚未产生可用通过结果，请重新运行验收套件。</span>}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      {primaryFailure.required_tools.length > 0 && <Badge variant="warning">要求工具 {primaryFailure.required_tools.join('、')}</Badge>}
+                      {primaryFailure.required_subagents.length > 0 && <Badge variant="warning">要求子代理 {primaryFailure.required_subagents.join('、')}</Badge>}
+                      {primaryFailure.required_event_types.length > 0 && <Badge variant="warning">要求事件 {primaryFailure.required_event_types.join('、')}</Badge>}
+                      <span className="text-destructive/80">最近运行 {formatDateTime(primaryFailure.last_run_at)}</span>
+                      {primaryFailure.agent_run_id && (
+                        <button type="button" className="ml-auto text-info hover:underline" onClick={() => focusRunEvidence(primaryFailure.agent_run_id)}>
+                          打开 Run Evidence
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   {coverage.cases
                     .filter((item) => (

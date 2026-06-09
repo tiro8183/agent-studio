@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import json
 
 from sqlmodel import Session, create_engine, select
 
@@ -67,6 +68,7 @@ def seed_demo_data() -> None:
             ensure_demo_skill(session)
             ensure_builtin_tools(session)
             ensure_demo_agent_profile(session)
+            ensure_demo_regression_cases(session)
             ensure_published_agent_snapshots(session)
             return
 
@@ -215,6 +217,44 @@ def ensure_demo_agent_profile(session: Session) -> None:
             changed = True
             candidate.updated_at = now_iso()
             session.add(candidate)
+    if changed:
+        session.commit()
+
+
+def ensure_demo_regression_cases(session: Session) -> None:
+    demo_case_names = {"平台能力演示回归", "固定回复冒烟测试"}
+    rows = session.exec(
+        select(AgentTestCase).where(
+            AgentTestCase.org_id == DEFAULT_ORG_ID,
+            AgentTestCase.name.in_(demo_case_names),
+        )
+    ).all()
+    changed = False
+    for row in rows:
+        try:
+            assertion = json.loads(row.assertion_json or "{}")
+        except json.JSONDecodeError:
+            assertion = {}
+        desired_assertion = {
+            **assertion,
+            "required_keywords": json.loads(row.expected_keywords_json or "[]"),
+            "required_tools": [],
+            "required_subagents": [],
+            "required_event_types": [],
+        }
+        desired_assertion.pop("max_duration_ms", None)
+        desired_json = json.dumps(desired_assertion, ensure_ascii=False, separators=(",", ":"))
+        if row.assertion_json != desired_json:
+            row.assertion_json = desired_json
+            row.last_status = "untested"
+            row.last_error = ""
+            row.last_output = ""
+            row.last_run_id = None
+            row.last_runtime_plan_hash = ""
+            row.last_run_at = None
+            row.updated_at = now_iso()
+            session.add(row)
+            changed = True
     if changed:
         session.commit()
 
