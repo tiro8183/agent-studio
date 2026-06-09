@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { canAtLeast } from '../services/authz';
 import { api } from '../services/api';
-import { PageContainer, PageHeader } from '../components/layout';
 import { AgentBuilder } from './admin/AgentBuilder';
 
 export default function AgentsPage() {
@@ -25,11 +24,7 @@ export default function AgentsPage() {
   };
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="Agent Studio"
-        description="围绕当前 Agent 完成配置、业务验证和上线发布，运行真相与阻断项收敛在审阅区。"
-      />
+    <div className="-m-6 h-[calc(100%+3rem)] min-h-0 overflow-hidden rounded-none border-0 bg-background">
       <AgentBuilder
         agents={agents.data || []}
         llms={llms.data || []}
@@ -38,6 +33,6 @@ export default function AgentsPage() {
         canEdit={canEditAgents}
         onRefresh={refresh}
       />
-    </PageContainer>
+    </div>
   );
 }

@@ -1,6 +1,10 @@
+import * as React from 'react';
 import { useMemo } from 'react';
 import {
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   ListChecks,
   Plus,
@@ -10,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Confirm } from '@/components/ui/confirm';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Select,
   SelectTrigger,
@@ -28,88 +33,203 @@ import {
 } from '../../services/agentLifecycle';
 import { shortHash, studioSteps, type StudioStepKey } from './agentStudioModel';
 
+/** Per-step indicator state shown in the vertical rail. */
+export type StudioStepStatus = 'done' | 'attention' | 'idle';
+
 function studioStatusLabel(agent: Agent | null) {
   return agentStudioObjectLabel(agent);
 }
 
-function statusVariant(status?: Agent['status']): NonNullable<BadgeProps['variant']> {
-  switch (status) {
-    case 'published':
-      return 'success';
-    case 'inactive':
-      return 'muted';
-    case 'unpublished':
-      return 'warning';
-    default:
-      return 'muted';
-  }
-}
-
-interface BlueprintRailProps {
+interface StudioRailProps {
   agents: Agent[];
   editingAgent: Agent | null;
   canEdit: boolean;
+  activeStep: StudioStepKey;
+  stepStatus: Record<StudioStepKey, StudioStepStatus>;
   onCreate: () => void;
   onSelect: (agent: Agent) => void;
   onDelete: () => void;
+  onChangeStep: (step: StudioStepKey) => void;
 }
 
-export function AgentBlueprintRail({
+/**
+ * Full left rail: agent selector + create/delete at the top, then the 8
+ * studioSteps rendered as a vertical, status-aware navigation list.
+ */
+export function AgentStudioRail({
   agents,
   editingAgent,
   canEdit,
+  activeStep,
+  stepStatus,
   onCreate,
   onSelect,
   onDelete,
-}: BlueprintRailProps) {
+  onChangeStep,
+}: StudioRailProps) {
   const serviceOptions = useMemo(() => agents.map((agent) => ({
     value: agent.id,
     label: `${agent.name} · ${studioStatusLabel(agent)}${agent.config_pending_publish ? ' · 配置变更' : ''}`,
   })), [agents]);
 
   return (
-    <aside className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
-      <div className="space-y-1.5">
-        <span className="text-xs font-medium text-muted-foreground">当前服务</span>
-        <Select
-          value={editingAgent?.id}
-          disabled={!agents.length}
-          onValueChange={(id) => {
-            const next = agents.find((agent) => agent.id === id);
-            if (next) onSelect(next);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="选择 Agent 服务" />
-          </SelectTrigger>
-          <SelectContent>
-            {serviceOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <aside className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="space-y-3 border-b border-border p-4">
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground">当前服务</span>
+          <Select
+            value={editingAgent?.id}
+            disabled={!agents.length}
+            onValueChange={(id) => {
+              const next = agents.find((agent) => agent.id === id);
+              if (next) onSelect(next);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择 Agent 服务" />
+            </SelectTrigger>
+            <SelectContent>
+              {serviceOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            className="flex-1"
+            disabled={!canEdit}
+            title={canEdit ? '新建服务' : '需编辑权限'}
+            onClick={onCreate}
+          >
+            <Plus /> 新建服务
+          </Button>
+          {editingAgent && (
+            <Confirm title="确定删除这个 Agent？" onConfirm={onDelete} disabled={!canEdit}>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!canEdit}
+                title={canEdit ? '删除当前 Agent' : '需编辑权限'}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </Confirm>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Button
-          disabled={!canEdit}
-          title={canEdit ? '新建服务' : '需编辑权限'}
-          onClick={onCreate}
-        >
-          <Plus /> 新建服务
-        </Button>
-        {editingAgent && (
-          <Confirm title="确定删除这个 Agent？" onConfirm={onDelete} disabled={!canEdit}>
-            <Button
-              variant="destructive"
-              disabled={!canEdit}
-              title={canEdit ? '删除当前 Agent' : '需编辑权限'}
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4" aria-label="Agent 配置分区">
+        {studioSteps.map((step, index) => {
+          const active = activeStep === step.key;
+          const status = stepStatus[step.key] || 'idle';
+          return (
+            <button
+              type="button"
+              key={step.key}
+              onClick={() => onChangeStep(step.key)}
+              className={cn(
+                'group flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                active
+                  ? 'border-primary/40 bg-primary/8'
+                  : 'border-transparent hover:border-border hover:bg-accent/40',
+              )}
             >
-              <Trash2 className="size-3.5" /> 删除
-            </Button>
-          </Confirm>
-        )}
-      </div>
+              <span
+                className={cn(
+                  'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors',
+                  status === 'done'
+                    ? 'border-success/40 bg-success/12 text-success'
+                    : status === 'attention'
+                      ? 'border-warning/40 bg-warning/12 text-warning'
+                      : active
+                        ? 'border-primary/50 bg-primary/12 text-primary'
+                        : 'border-border bg-muted/40 text-muted-foreground',
+                )}
+              >
+                {status === 'done'
+                  ? <Check className="size-3.5" />
+                  : status === 'attention'
+                    ? <CircleAlert className="size-3.5" />
+                    : String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="min-w-0 flex-1 space-y-0.5">
+                <span className="flex items-center gap-2">
+                  <strong className={cn('truncate text-sm font-semibold', active ? 'text-primary' : 'text-foreground')}>{step.title}</strong>
+                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">{step.group}</span>
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">{step.desc}</span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
     </aside>
+  );
+}
+
+interface StudioStepFrameProps {
+  stepKey: StudioStepKey;
+  stepIndex: number;
+  stepCount: number;
+  canPrev: boolean;
+  canNext: boolean;
+  highlight?: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  children: React.ReactNode;
+}
+
+/**
+ * Center focused-editor frame: a clear step header (number + title + desc), an
+ * internally-scrolling body, and a 上一步 / 下一步 footer.
+ */
+export function StudioStepFrame({
+  stepKey,
+  stepIndex,
+  stepCount,
+  canPrev,
+  canNext,
+  highlight,
+  onPrev,
+  onNext,
+  children,
+}: StudioStepFrameProps) {
+  const step = studioSteps.find((item) => item.key === stepKey) || studioSteps[0];
+  return (
+    <section
+      id={`studio-${stepKey}`}
+      className={cn(
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow',
+        highlight && 'ring-2 ring-primary/50',
+      )}
+    >
+      <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+            {String(stepIndex + 1).padStart(2, '0')}
+          </span>
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-foreground">{step.title}</h3>
+              <Badge variant="muted">{step.group}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">{step.desc}</p>
+          </div>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+          第 {stepIndex + 1} / {stepCount} 步
+        </span>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+      <footer className="flex items-center justify-between gap-2 border-t border-border px-5 py-3">
+        <Button variant="outline" disabled={!canPrev} onClick={onPrev}>
+          <ChevronLeft /> 上一步
+        </Button>
+        <Button variant="outline" disabled={!canNext} onClick={onNext}>
+          下一步 <ChevronRight />
+        </Button>
+      </footer>
+    </section>
   );
 }
 
@@ -136,24 +256,26 @@ export function AgentStudioHeader({
   onOpenPreflight,
   onDeactivate,
 }: AgentStudioHeaderProps) {
-  const objectStateLabel = studioStatusLabel(editingAgent);
   const releaseText = lifecycleReleaseLabel(editingAgent, Boolean(editingAgent?.config_pending_publish));
   const objectDetail = agentStudioObjectDetail(editingAgent, hasUnsavedChanges, Boolean(editingAgent?.config_pending_publish));
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-card px-5 py-4">
       <div className="min-w-0 space-y-1.5">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListChecks className="size-3.5" /> 服务配置</div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">{editingAgent ? editingAgent.name : '新建 Agent 服务'}</h2>
-        <p className="text-sm text-muted-foreground">{objectDetail}</p>
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListChecks className="size-3.5" /> Agent Studio · 服务配置</div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{editingAgent ? editingAgent.name : '新建 Agent 服务'}</h2>
+          <StatusBadge status={editingAgent?.status} />
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant={statusVariant(editingAgent?.status)}>{objectStateLabel}</Badge>
+          <span>{objectDetail}</span>
+          <span aria-hidden className="text-border">·</span>
           <span>{releaseText}</span>
-          <span>{editingAgent?.model ? `模型通道 ${editingAgent.model}` : '未绑定模型通道'}</span>
+          <Badge variant="muted">{editingAgent?.model ? `模型 ${editingAgent.model}` : '未绑定模型通道'}</Badge>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" disabled={!editingAgent} onClick={onOpenManifest}><ListChecks /> 上线版本</Button>
         <Button variant="outline" disabled={!editingAgent} onClick={onOpenPreflight}><Stethoscope /> 上线检查</Button>
+        <Button variant="outline" disabled={!editingAgent} onClick={onOpenManifest}><ListChecks /> 上线版本</Button>
         {editingAgent?.status === 'published' && (
           <Button
             variant="destructive"
@@ -165,7 +287,6 @@ export function AgentStudioHeader({
           </Button>
         )}
         <Button
-          variant="outline"
           disabled={!canEdit || isSaving}
           title={canEdit ? '保存配置；已上线版本不受影响' : '需编辑权限'}
           onClick={onSave}
@@ -173,7 +294,7 @@ export function AgentStudioHeader({
           {isSaving ? <Spinner className="text-current" /> : null} 保存配置
         </Button>
       </div>
-    </div>
+    </header>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { agentConfigStateLabel } from '../../services/agentLifecycle';
 import { api } from '../../services/api';
@@ -13,10 +13,11 @@ import type {
   ToolDefinition,
 } from '../../types/domain';
 import {
-  AgentBlueprintRail,
   AgentStudioHeader,
+  AgentStudioRail,
   StudioInspectorPanel,
-  StudioStepNav,
+  StudioStepFrame,
+  type StudioStepStatus,
 } from './AgentStudioChrome';
 import {
   AgentPreflightDrawer,
@@ -55,6 +56,26 @@ interface AgentBuilderProps {
   canEdit: boolean;
   onRefresh: () => void;
 }
+
+/** Maps preflight check keys onto the focused studio step that owns them. */
+const blockerStepMap: Record<string, StudioStepKey> = {
+  identity: 'profile',
+  model_binding: 'model',
+  api_key_configured: 'model',
+  provider_check: 'model',
+  deepagents_runtime: 'runtime',
+  runtime_configuration: 'runtime',
+  runtime_manifest_guard: 'runtime',
+  runtime_governance_gate: 'runtime',
+  runtime_resources: 'capabilities',
+  capabilities: 'capabilities',
+  tool_health: 'capabilities',
+  skill_health: 'capabilities',
+  knowledge: 'knowledge',
+  test_run: 'evaluation',
+  regression_suite: 'evaluation',
+  publication_metadata: 'evaluation',
+};
 
 export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }: AgentBuilderProps) {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -353,34 +374,65 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
     ));
   }, [testCases.data]);
 
-  const showStudioSection = (stepKey: StudioStepKey) => {
-    setActiveStudioStep(stepKey);
-  };
-  const blockerFieldMap = useMemo(() => ({
-    identity: 'profile' as StudioStepKey,
-    model_binding: 'model' as StudioStepKey,
-    api_key_configured: 'model' as StudioStepKey,
-    provider_check: 'model' as StudioStepKey,
-    deepagents_runtime: 'runtime' as StudioStepKey,
-    runtime_configuration: 'runtime' as StudioStepKey,
-    runtime_manifest_guard: 'runtime' as StudioStepKey,
-    runtime_governance_gate: 'runtime' as StudioStepKey,
-    runtime_resources: 'capabilities' as StudioStepKey,
-    capabilities: 'capabilities' as StudioStepKey,
-    tool_health: 'capabilities' as StudioStepKey,
-    skill_health: 'capabilities' as StudioStepKey,
-    knowledge: 'knowledge' as StudioStepKey,
-    test_run: 'evaluation' as StudioStepKey,
-    regression_suite: 'evaluation' as StudioStepKey,
-    publication_metadata: 'evaluation' as StudioStepKey,
-  }), []);
+  // Watch fields that determine per-step completion in the left rail.
+  const watchedName = useFormWatch(agentForm, 'name');
+  const watchedModel = useFormWatch(agentForm, 'model');
+  const watchedSystemPrompt = useFormWatch(agentForm, 'system_prompt');
+  const watchedTools = useFormWatch(agentForm, 'tools');
+  const watchedSkills = useFormWatch(agentForm, 'skills');
+  const watchedSubagents = useFormWatch(agentForm, 'subagents');
+
+  /** Per-step indicator: blocker → attention, satisfied → done, otherwise idle. */
+  const stepStatus = useMemo<Record<StudioStepKey, StudioStepStatus>>(() => {
+    const attention = new Set<StudioStepKey>();
+    (preflight.data?.checks || []).forEach((check) => {
+      if (check.passed || check.severity !== 'blocker') return;
+      attention.add(blockerStepMap[check.key] || 'runtime');
+    });
+    if (studioInspector.missingResources.length) attention.add('capabilities');
+    if (studioInspector.regressionBlockers.length) attention.add('evaluation');
+
+    const done: Record<StudioStepKey, boolean> = {
+      profile: Boolean(watchedName && selectedLlmId),
+      model: Boolean(selectedLlmId && watchedModel),
+      instructions: Boolean((watchedSystemPrompt || '').trim()),
+      capabilities: Boolean((watchedTools?.length || 0) + (watchedSkills?.length || 0) > 0),
+      subagents: Boolean(watchedSubagents?.length),
+      knowledge: studioInspector.knowledgeCount > 0,
+      runtime: Boolean(editingAgent),
+      evaluation: studioInspector.activeCases > 0 && studioInspector.passedCases >= studioInspector.activeCases,
+    };
+
+    const result = {} as Record<StudioStepKey, StudioStepStatus>;
+    studioSteps.forEach((step) => {
+      result[step.key] = attention.has(step.key)
+        ? 'attention'
+        : done[step.key]
+          ? 'done'
+          : 'idle';
+    });
+    return result;
+  }, [
+    editingAgent,
+    preflight.data?.checks,
+    selectedLlmId,
+    studioInspector.activeCases,
+    studioInspector.knowledgeCount,
+    studioInspector.missingResources.length,
+    studioInspector.passedCases,
+    studioInspector.regressionBlockers.length,
+    watchedModel,
+    watchedName,
+    watchedSkills,
+    watchedSubagents,
+    watchedSystemPrompt,
+    watchedTools,
+  ]);
+
   const handleBlockerFocus = (checkKey: string) => {
-    const targetStep = blockerFieldMap[checkKey as keyof typeof blockerFieldMap] || 'runtime';
+    const targetStep = blockerStepMap[checkKey] || 'runtime';
     setActiveStudioStep(targetStep);
     setFocusedBlockerStep(targetStep);
-    window.requestAnimationFrame(() => {
-      document.getElementById(`studio-${targetStep}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
     window.setTimeout(() => {
       setFocusedBlockerStep((current) => (current === targetStep ? null : current));
     }, 1800);
@@ -406,182 +458,186 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
       onPublish={studioActions.publishCurrentAgent}
     />
   );
-  const activeStepMeta = studioSteps.find((item) => item.key === activeStudioStep) || studioSteps[0];
-  const panelClass = (stepKey: StudioStepKey) => cn(
-    'rounded-xl border bg-card p-5 transition-shadow',
-    activeStudioStep === stepKey ? 'border-border' : 'hidden',
-    focusedBlockerStep === stepKey && 'ring-2 ring-primary/50',
-  );
+
+  const activeStepIndex = Math.max(0, studioSteps.findIndex((item) => item.key === activeStudioStep));
+  const goToStep = (offset: number) => {
+    const next = studioSteps[activeStepIndex + offset];
+    if (next) setActiveStudioStep(next.key);
+  };
+
+  const renderActivePanel = () => {
+    switch (activeStudioStep) {
+      case 'profile':
+        return <ProfilePanel form={agentForm} llmOptions={llmOptions} modelOptions={selectedLlmModels} canEdit={canEdit} />;
+      case 'model':
+        return <ModelContractPanel form={agentForm} llmOptions={llmOptions} modelOptions={selectedLlmModels} canEdit={canEdit} />;
+      case 'instructions':
+        return <InstructionsPanel form={agentForm} canEdit={canEdit} />;
+      case 'capabilities':
+        return (
+          <CapabilitiesPanel
+            form={agentForm}
+            editingAgent={editingAgent}
+            runtimeManifestEnvelope={activeManifestEnvelope}
+            runtimeManifestLoading={activeManifestLoading}
+            runtimeManifestError={activeManifestError}
+            toolOptions={toolOptions}
+            skillOptions={skillOptions}
+            canEdit={canEdit}
+          />
+        );
+      case 'subagents':
+        return (
+          <SubagentsPanel
+            form={agentForm}
+            llmOptions={llmOptions}
+            toolOptions={toolOptions}
+            skillOptions={skillOptions}
+            modelOptionsForLlm={modelOptionsForLlm}
+            canEdit={canEdit}
+          />
+        );
+      case 'knowledge':
+        return (
+          <KnowledgePanel
+            editingAgent={editingAgent}
+            documents={knowledge.data || []}
+            acceptExtensions={studioActions.knowledgeAccept}
+            onUpload={studioActions.uploadKnowledgeFile}
+            uploadQuota={uploadQuota.data}
+            canEdit={canEdit}
+            onPreview={studioActions.previewKnowledge}
+            onDelete={studioActions.deleteKnowledge}
+          />
+        );
+      case 'runtime':
+        return (
+          <RuntimePolicyPanel
+            form={agentForm}
+            editingAgent={editingAgent}
+            agentOutputSchemaText={agentOutputSchemaText}
+            harnessToolDescriptionText={harnessToolDescriptionText}
+            canEdit={canEdit}
+            onOutputSchemaChange={(value) => {
+              if (!canEdit) return;
+              setAgentOutputSchemaText(value);
+              setHasUnsavedChanges(true);
+            }}
+            onHarnessToolDescriptionChange={(value) => {
+              if (!canEdit) return;
+              setHarnessToolDescriptionText(value);
+              setHasUnsavedChanges(true);
+            }}
+          />
+        );
+      case 'evaluation':
+        return (
+          <EvaluationPanel
+            editingAgent={editingAgent}
+            testInput={studioActions.testInput}
+            testOutput={studioActions.testOutput}
+            testRunning={studioActions.testRunning}
+            caseSchemaTexts={caseSchemaTexts}
+            cases={testCases.data || []}
+            coverage={regressionCoverage.data}
+            suiteRuns={testSuiteRuns.data || []}
+            runHistory={testRunHistory.data || {}}
+            runtimePlanHash={studioInspector.runtimePlanHash}
+            passedCases={studioInspector.passedCases}
+            activeCases={studioInspector.activeCases}
+            regressionCoveragePercent={studioInspector.regressionCoveragePercent}
+            regressionFailed={studioInspector.regressionFailed}
+            regressionStale={studioInspector.regressionStale}
+            regressionUntested={studioInspector.regressionUntested}
+            canPublish={studioInspector.canPublish && !studioInspector.hasUnsavedChanges}
+            publishDisabledReason={studioInspector.hasUnsavedChanges ? '请先保存配置，再生成上线版本。' : studioInspector.publishDisabledReason}
+            publishActionLabel={studioInspector.publishActionLabel}
+            toolOptions={toolOptions}
+            canEdit={canEdit}
+            isSuiteRunning={studioActions.runTestSuite.isPending}
+            isPublishing={studioActions.releaseActionPending}
+            isCreatingCase={studioActions.createTestCase.isPending}
+            isUpdatingCase={studioActions.updateTestCase.isPending}
+            isRunningCase={studioActions.runTestCase.isPending}
+            onTestInputChange={(value) => canEdit && studioActions.setTestInput(value)}
+            onRunBuilderTest={studioActions.runBuilderTest}
+            onRunSuite={() => {
+              if (!canEdit) return studioActions.warnReadOnly();
+              return studioActions.runTestSuite.mutate();
+            }}
+            onPublish={studioActions.publishCurrentAgent}
+            onCreateCase={() => (canEdit ? studioActions.createTestCase.mutate() : studioActions.warnReadOnly())}
+            onSetLocalCase={studioActions.setLocalTestCase}
+            onCaseSchemaTextChange={(caseId, value) => {
+              if (!canEdit) return;
+              setCaseSchemaTexts((prev) => ({ ...prev, [caseId]: value }));
+            }}
+            onUpdateCase={(id, values) => (canEdit ? studioActions.updateTestCase.mutate({ id, values }) : studioActions.warnReadOnly())}
+            onRunCase={(id) => (canEdit ? studioActions.runTestCase.mutate(id) : studioActions.warnReadOnly())}
+            onDeleteCase={studioActions.deleteTestCase}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <>
-      <section className="grid gap-4 lg:grid-cols-[240px_1fr]">
-        <AgentBlueprintRail
+    <div className="flex h-full min-h-0 flex-col">
+      <AgentStudioHeader
+        editingAgent={editingAgent}
+        canEdit={canEdit}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isSaving={studioActions.saveAgent.isPending}
+        isDeactivating={studioActions.deactivateAgent.isPending}
+        onSave={submitAgent}
+        onOpenManifest={studioActions.openRuntimeManifest}
+        onOpenPreflight={studioActions.openAgentPreflight}
+        onDeactivate={() => {
+          if (!canEdit) return studioActions.warnReadOnly();
+          return editingAgent && studioActions.deactivateAgent.mutate(editingAgent.id);
+        }}
+      />
+      <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_340px]">
+        <AgentStudioRail
           agents={agents}
           editingAgent={editingAgent}
           canEdit={canEdit}
+          activeStep={activeStudioStep}
+          stepStatus={stepStatus}
           onCreate={() => (canEdit ? selectAgent(null) : studioActions.warnReadOnly())}
           onSelect={selectAgent}
           onDelete={studioActions.deleteCurrentAgent}
+          onChangeStep={setActiveStudioStep}
         />
-        <section className="min-w-0 space-y-4">
-          <AgentStudioHeader
-            editingAgent={editingAgent}
-            canEdit={canEdit}
-            hasUnsavedChanges={hasUnsavedChanges}
-            isSaving={studioActions.saveAgent.isPending}
-            isDeactivating={studioActions.deactivateAgent.isPending}
-            onSave={submitAgent}
-            onOpenManifest={studioActions.openRuntimeManifest}
-            onOpenPreflight={studioActions.openAgentPreflight}
-            onDeactivate={() => {
-              if (!canEdit) return studioActions.warnReadOnly();
-              return editingAgent && studioActions.deactivateAgent.mutate(editingAgent.id);
-            }}
-          />
-          <div className="lg:hidden">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+          <div className="xl:hidden">
             <Button
+              variant="outline"
+              className="w-full"
               disabled={!editingAgent}
               onClick={() => setMobileInspectorOpen(true)}
             >
-              运行真相 {shortHash(studioInspector.manifestHash)} · {studioInspector.blockers + studioInspector.regressionFailed} 未通过
+              <ClipboardCheck /> 上线就绪 · 运行真相 {shortHash(studioInspector.manifestHash)} · {studioInspector.blockers + studioInspector.regressionFailed} 未通过
             </Button>
           </div>
-          <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-            <div className="min-w-0 space-y-4">
-              <StudioStepNav
-                activeStep={activeStudioStep}
-                blockers={preflight.data?.checks || []}
-                onChange={showStudioSection}
-              />
-              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                <span className="text-xs font-medium text-muted-foreground">当前任务 · {activeStepMeta.group}</span>
-                <h3 className="text-base font-semibold text-foreground">{activeStepMeta.title}</h3>
-                <p className="text-xs text-muted-foreground">{activeStepMeta.desc}</p>
-              </div>
-
-              <section className={panelClass('profile')} id="studio-profile">
-                <ProfilePanel form={agentForm} llmOptions={llmOptions} modelOptions={selectedLlmModels} canEdit={canEdit} />
-              </section>
-
-              <section className={panelClass('model')} id="studio-model">
-                <ModelContractPanel form={agentForm} llmOptions={llmOptions} modelOptions={selectedLlmModels} canEdit={canEdit} />
-              </section>
-
-              <section className={panelClass('instructions')} id="studio-instructions">
-                <InstructionsPanel form={agentForm} canEdit={canEdit} />
-              </section>
-
-              <section className={panelClass('capabilities')} id="studio-capabilities">
-                <CapabilitiesPanel
-                  form={agentForm}
-                  editingAgent={editingAgent}
-                  runtimeManifestEnvelope={activeManifestEnvelope}
-                  runtimeManifestLoading={activeManifestLoading}
-                  runtimeManifestError={activeManifestError}
-                  toolOptions={toolOptions}
-                  skillOptions={skillOptions}
-                  canEdit={canEdit}
-                />
-              </section>
-
-              <section className={panelClass('subagents')} id="studio-subagents">
-                <SubagentsPanel
-                  form={agentForm}
-                  llmOptions={llmOptions}
-                  toolOptions={toolOptions}
-                  skillOptions={skillOptions}
-                  modelOptionsForLlm={modelOptionsForLlm}
-                  canEdit={canEdit}
-                />
-              </section>
-
-              <section className={panelClass('knowledge')} id="studio-knowledge">
-                <KnowledgePanel
-                  editingAgent={editingAgent}
-                  documents={knowledge.data || []}
-                  acceptExtensions={studioActions.knowledgeAccept}
-                  onUpload={studioActions.uploadKnowledgeFile}
-                  uploadQuota={uploadQuota.data}
-                  canEdit={canEdit}
-                  onPreview={studioActions.previewKnowledge}
-                  onDelete={studioActions.deleteKnowledge}
-                />
-              </section>
-
-              <section className={panelClass('runtime')} id="studio-runtime">
-                <RuntimePolicyPanel
-                  form={agentForm}
-                  editingAgent={editingAgent}
-                  agentOutputSchemaText={agentOutputSchemaText}
-                  harnessToolDescriptionText={harnessToolDescriptionText}
-                  canEdit={canEdit}
-                  onOutputSchemaChange={(value) => {
-                    if (!canEdit) return;
-                    setAgentOutputSchemaText(value);
-                    setHasUnsavedChanges(true);
-                  }}
-                  onHarnessToolDescriptionChange={(value) => {
-                    if (!canEdit) return;
-                    setHarnessToolDescriptionText(value);
-                    setHasUnsavedChanges(true);
-                  }}
-                />
-              </section>
-
-              <section className={panelClass('evaluation')} id="studio-evaluation">
-                <EvaluationPanel
-                  editingAgent={editingAgent}
-                  testInput={studioActions.testInput}
-                  testOutput={studioActions.testOutput}
-                  testRunning={studioActions.testRunning}
-                  caseSchemaTexts={caseSchemaTexts}
-                  cases={testCases.data || []}
-                  coverage={regressionCoverage.data}
-                  suiteRuns={testSuiteRuns.data || []}
-                  runHistory={testRunHistory.data || {}}
-                  runtimePlanHash={studioInspector.runtimePlanHash}
-                  passedCases={studioInspector.passedCases}
-                  activeCases={studioInspector.activeCases}
-                  regressionCoveragePercent={studioInspector.regressionCoveragePercent}
-                  regressionFailed={studioInspector.regressionFailed}
-                  regressionStale={studioInspector.regressionStale}
-                  regressionUntested={studioInspector.regressionUntested}
-                  canPublish={studioInspector.canPublish && !studioInspector.hasUnsavedChanges}
-                  publishDisabledReason={studioInspector.hasUnsavedChanges ? '请先保存配置，再生成上线版本。' : studioInspector.publishDisabledReason}
-                  publishActionLabel={studioInspector.publishActionLabel}
-                  toolOptions={toolOptions}
-                  canEdit={canEdit}
-                  isSuiteRunning={studioActions.runTestSuite.isPending}
-                  isPublishing={studioActions.releaseActionPending}
-                  isCreatingCase={studioActions.createTestCase.isPending}
-                  isUpdatingCase={studioActions.updateTestCase.isPending}
-                  isRunningCase={studioActions.runTestCase.isPending}
-                  onTestInputChange={(value) => canEdit && studioActions.setTestInput(value)}
-                  onRunBuilderTest={studioActions.runBuilderTest}
-                  onRunSuite={() => {
-                    if (!canEdit) return studioActions.warnReadOnly();
-                    return studioActions.runTestSuite.mutate();
-                  }}
-                  onPublish={studioActions.publishCurrentAgent}
-                  onCreateCase={() => (canEdit ? studioActions.createTestCase.mutate() : studioActions.warnReadOnly())}
-                  onSetLocalCase={studioActions.setLocalTestCase}
-                  onCaseSchemaTextChange={(caseId, value) => {
-                    if (!canEdit) return;
-                    setCaseSchemaTexts((prev) => ({ ...prev, [caseId]: value }));
-                  }}
-                  onUpdateCase={(id, values) => (canEdit ? studioActions.updateTestCase.mutate({ id, values }) : studioActions.warnReadOnly())}
-                  onRunCase={(id) => (canEdit ? studioActions.runTestCase.mutate(id) : studioActions.warnReadOnly())}
-                  onDeleteCase={studioActions.deleteTestCase}
-                />
-              </section>
-            </div>
-            <div className="hidden xl:block">
-              {renderInspectorPanel()}
-            </div>
-          </div>
-        </section>
-      </section>
+          <StudioStepFrame
+            stepKey={activeStudioStep}
+            stepIndex={activeStepIndex}
+            stepCount={studioSteps.length}
+            canPrev={activeStepIndex > 0}
+            canNext={activeStepIndex < studioSteps.length - 1}
+            highlight={focusedBlockerStep === activeStudioStep}
+            onPrev={() => goToStep(-1)}
+            onNext={() => goToStep(1)}
+          >
+            {renderActivePanel()}
+          </StudioStepFrame>
+        </div>
+        <div className="hidden min-h-0 overflow-y-auto xl:block">
+          {renderInspectorPanel()}
+        </div>
+      </div>
 
       <AgentPreflightDrawer
         open={studioActions.preflightOpen}
@@ -606,7 +662,7 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
       <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
         <SheetContent side="bottom" className="h-[82vh]">
           <SheetHeader>
-            <SheetTitle>运行真相 · {shortHash(studioInspector.manifestHash)}</SheetTitle>
+            <SheetTitle>上线就绪 · {shortHash(studioInspector.manifestHash)}</SheetTitle>
           </SheetHeader>
           <SheetBody>
             {renderInspectorPanel((checkKey) => {
@@ -616,6 +672,6 @@ export function AgentBuilder({ agents, llms, tools, skills, canEdit, onRefresh }
           </SheetBody>
         </SheetContent>
       </Sheet>
-    </>
+    </div>
   );
 }
